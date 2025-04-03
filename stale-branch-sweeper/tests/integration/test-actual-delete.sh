@@ -18,7 +18,7 @@ cd "$TEST_REPO_DIR/repo"
 # Set up GitHub Actions environment variables
 export GITHUB_WORKSPACE="$TEST_REPO_DIR/repo"
 export GITHUB_REPOSITORY="owner/repo"
-export GITHUB_ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+export GITHUB_ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export GITHUB_ENV="$TEST_REPO_DIR/github_env"
 export GITHUB_OUTPUT="$TEST_REPO_DIR/github_output"
 
@@ -47,8 +47,8 @@ if [[ -f "$GITHUB_ENV" ]]; then
   source "$GITHUB_ENV"
 fi
 
-# Run the execute 
-"$GITHUB_ACTION_PATH/scripts/execute.sh"
+# Run the execute script with correct path
+"${GITHUB_ACTION_PATH}/scripts/execute.sh"
 
 # Verify stale-branch and old-branch don't exist anymore
 if git ls-remote --exit-code --heads origin stale-branch >/dev/null 2>&1; then
