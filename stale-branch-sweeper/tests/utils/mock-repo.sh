@@ -24,7 +24,12 @@ setup_test_repo() {
   # Rename branch to main if needed
   git branch -M main
   
-  # Create some branches with different timestamps
+  # Get current date in seconds since epoch
+  CURRENT_DATE=$(date +%s)
+  
+  # Calculate dates for different branches
+  THREE_WEEKS_AGO=$(date -d "@$((CURRENT_DATE - 21*24*60*60))" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || date -r "$((CURRENT_DATE - 21*24*60*60))" "+%Y-%m-%d %H:%M:%S")
+  FIVE_WEEKS_AGO=$(date -d "@$((CURRENT_DATE - 35*24*60*60))" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || date -r "$((CURRENT_DATE - 35*24*60*60))" "+%Y-%m-%d %H:%M:%S")
   
   # 1. Recent branch (less than 2 weeks old)
   git checkout -b recent-branch
@@ -38,7 +43,7 @@ setup_test_repo() {
   git add stale.txt
   git commit -m "Add stale content"
   # Modify commit date to be more than 2 weeks old
-  GIT_COMMITTER_DATE="3 weeks ago" git commit --amend --no-edit --date="3 weeks ago"
+  GIT_COMMITTER_DATE="$THREE_WEEKS_AGO" git commit --amend --no-edit --date="$THREE_WEEKS_AGO"
   
   # 3. Very old branch (more than a month old)
   git checkout -b old-branch
@@ -46,7 +51,7 @@ setup_test_repo() {
   git add old.txt
   git commit -m "Add old content"
   # Modify commit date to be more than a month old
-  GIT_COMMITTER_DATE="5 weeks ago" git commit --amend --no-edit --date="5 weeks ago"
+  GIT_COMMITTER_DATE="$FIVE_WEEKS_AGO" git commit --amend --no-edit --date="$FIVE_WEEKS_AGO"
   
   # 4. Protected branch
   git checkout -b protected-branch
