@@ -5,9 +5,11 @@ set -o pipefail
 # Setup script for stale-branch-sweeper
 echo "Setting up environment..."
 
-# Validate required inputs
-if [ -z "${INPUT_GITHUB_TOKEN}" ]; then
-  echo "::error::Required input 'github-token' is missing"
+# Use INPUT_GITHUB_TOKEN if provided, otherwise fall back to GITHUB_TOKEN
+if [ -n "${INPUT_GITHUB_TOKEN}" ]; then
+  export GITHUB_TOKEN="${INPUT_GITHUB_TOKEN}"
+elif [ -z "${GITHUB_TOKEN}" ]; then
+  echo "::error::GitHub token is missing. Please ensure GITHUB_TOKEN is available or provide 'github-token' input."
   exit 1
 fi
 
@@ -19,9 +21,6 @@ else
   DAYS_STALE="${INPUT_DAYS_STALE}"
 fi
 echo "DAYS_STALE=${DAYS_STALE}" >> $GITHUB_ENV
-
-# Set GitHub token
-export GITHUB_TOKEN="${INPUT_GITHUB_TOKEN}"
 
 # Determine if this is a dry run (check both variable sources)
 DRY_RUN="${GITHUB_EVENT_INPUTS_DRY_RUN:-${INPUT_DRY_RUN:-false}}"
