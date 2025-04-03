@@ -18,9 +18,15 @@ cd "$TEST_REPO_DIR/repo"
 # Set up GitHub Actions environment variables
 export GITHUB_WORKSPACE="$TEST_REPO_DIR/repo"
 export GITHUB_REPOSITORY="owner/repo"
-export GITHUB_ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# Ensure we get the absolute path to the action directory
+ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export GITHUB_ACTION_PATH="$ACTION_PATH"
 export GITHUB_ENV="$TEST_REPO_DIR/github_env"
 export GITHUB_OUTPUT="$TEST_REPO_DIR/github_output"
+
+# Debug output to verify paths
+echo "GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH"
+echo "Execute script path: $GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Create GitHub env file
 touch "$GITHUB_ENV"
@@ -47,8 +53,20 @@ if [[ -f "$GITHUB_ENV" ]]; then
   source "$GITHUB_ENV"
 fi
 
+# Verify the script exists before running
+if [ ! -f "$GITHUB_ACTION_PATH/scripts/execute.sh" ]; then
+  echo "ERROR: Execute script not found at $GITHUB_ACTION_PATH/scripts/execute.sh"
+  echo "Current directory: $(pwd)"
+  echo "Contents of $GITHUB_ACTION_PATH/scripts/:"
+  ls -la "$GITHUB_ACTION_PATH/scripts/" || echo "Directory not found"
+  exit 1
+fi
+
+# Make sure the script is executable
+chmod +x "$GITHUB_ACTION_PATH/scripts/execute.sh"
+
 # Run the execute script with correct path
-"${GITHUB_ACTION_PATH}/scripts/execute.sh"
+"$GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Verify branches still exist (since it's a dry run)
 # Check if stale-branch still exists
