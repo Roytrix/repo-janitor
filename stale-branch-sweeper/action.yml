@@ -1,0 +1,68 @@
+name: 'Stale Branch Sweeper'
+description: 'GitHub Action to clean up stale branches in a repository'
+
+inputs:
+  dry_run:
+    description: 'Run in dry-run mode (no actual deletions)'
+    default: 'false'
+    required: false
+  weeks_threshold:
+    description: 'Age threshold in weeks'
+    default: '2'
+    required: false
+  default_branch:
+    description: 'Default branch name (if empty, will be auto-detected from repository)'
+    default: ''
+    required: false
+  github_token:
+    description: 'GitHub PAT with repo permissions'
+    required: true
+  debug:
+    description: 'Enable debug mode with verbose logging'
+    default: 'false'
+    required: false
+
+outputs:
+  deleted_count:
+    description: 'Number of branches deleted'
+    value: ${{ steps.branch-sweeper.outputs.deleted_count }}
+  skipped_count:
+    description: 'Number of branches skipped'
+    value: ${{ steps.branch-sweeper.outputs.skipped_count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history
+        token: ${{ inputs.github_token }}
+
+    - name: Make scripts executable
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/entrypoint.sh
+        chmod +x ${{ github.action_path }}/scripts/*.sh
+
+    - name: Run branch sweeper
+      shell: bash
+      id: branch-sweeper
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GH_TOKEN: ${{ inputs.github_token }}
+        INPUTS_DRY_RUN: ${{ inputs.dry_run }}
+        INPUTS_WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
+        INPUTS_DEFAULT_BRANCH: ${{ inputs.default_branch }}
+        INPUTS_DEBUG: ${{ inputs.debug }}
+        GITHUB_EVENT_REPOSITORY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: ${{ github.action_path }}/entrypoint.sh
+
+    - name: Upload summary as artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: branch-cleanup-summary
+        path: summary.md
+        retention-days: 7

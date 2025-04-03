@@ -1,0 +1,40 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up test environment
+      run: |
+        # Install any dependencies needed for testing
+        sudo apt-get update
+        sudo apt-get install -y jq
+
+    - name: Make test scripts executable
+      run: |
+        chmod +x stale-branch-sweeper/tests/run-tests.sh
+        chmod +x stale-branch-sweeper/tests/utils/*.sh
+        chmod +x stale-branch-sweeper/tests/integration/*.sh
+        chmod +x stale-branch-sweeper/scripts/*.sh
+    
+    - name: Run integration tests
+      run: |
+        cd stale-branch-sweeper/tests
+        ./run-tests.sh
+    
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: stale-branch-sweeper/tests/results/
+        retention-days: 7
