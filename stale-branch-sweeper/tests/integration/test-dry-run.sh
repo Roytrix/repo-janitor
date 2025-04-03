@@ -1,30 +1,38 @@
 #!/bin/bash
 set -e
 
+# Get the absolute path to the test script itself, regardless of where it's called from
+TEST_SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+TEST_SCRIPT_DIR="$(dirname "$TEST_SCRIPT_PATH")"
+TESTS_DIR="$(dirname "$TEST_SCRIPT_DIR")"
+ACTION_ROOT="$(dirname "$TESTS_DIR")"
+
 # Load test utilities
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source "$SCRIPT_DIR/utils/mock-env.sh"
-source "$SCRIPT_DIR/utils/mock-gh-cli.sh"
+source "$TESTS_DIR/utils/mock-env.sh"
+source "$TESTS_DIR/utils/mock-gh-cli.sh"
 
 # Set global git default branch to suppress warnings
 git config --global init.defaultBranch main
 
 # Create test repo
 TEST_REPO_DIR=$(mktemp -d)
-source "$SCRIPT_DIR/utils/mock-repo.sh"
+source "$TESTS_DIR/utils/mock-repo.sh"
 setup_test_repo "$TEST_REPO_DIR/repo"
 cd "$TEST_REPO_DIR/repo"
 
 # Set up GitHub Actions environment variables
 export GITHUB_WORKSPACE="$TEST_REPO_DIR/repo"
 export GITHUB_REPOSITORY="owner/repo"
-# Ensure we get the absolute path to the action directory
-ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-export GITHUB_ACTION_PATH="$ACTION_PATH"
+
+# Use absolute path to the action root directory
+export GITHUB_ACTION_PATH="$ACTION_ROOT"
 export GITHUB_ENV="$TEST_REPO_DIR/github_env"
 export GITHUB_OUTPUT="$TEST_REPO_DIR/github_output"
 
 # Debug output to verify paths
+echo "TEST_SCRIPT_PATH: $TEST_SCRIPT_PATH"
+echo "TESTS_DIR: $TESTS_DIR"
+echo "ACTION_ROOT: $ACTION_ROOT"
 echo "GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH"
 echo "Execute script path: $GITHUB_ACTION_PATH/scripts/execute.sh"
 
@@ -57,7 +65,9 @@ fi
 if [ ! -f "$GITHUB_ACTION_PATH/scripts/execute.sh" ]; then
   echo "ERROR: Execute script not found at $GITHUB_ACTION_PATH/scripts/execute.sh"
   echo "Current directory: $(pwd)"
-  echo "Contents of $GITHUB_ACTION_PATH/scripts/:"
+  echo "GITHUB_ACTION_PATH contents:"
+  ls -la "$GITHUB_ACTION_PATH" || echo "Directory not found"
+  echo "Scripts directory contents:"
   ls -la "$GITHUB_ACTION_PATH/scripts/" || echo "Directory not found"
   exit 1
 fi
