@@ -6,22 +6,35 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SCRIPT_DIR/utils/mock-env.sh"
 source "$SCRIPT_DIR/utils/mock-gh-cli.sh"
 
+# Set global git default branch to suppress warnings
+git config --global init.defaultBranch main
+
 # Create test repo
 TEST_REPO_DIR=$(mktemp -d)
 source "$SCRIPT_DIR/utils/mock-repo.sh"
 setup_test_repo "$TEST_REPO_DIR/repo"
 cd "$TEST_REPO_DIR/repo"
 
-# Run the scripts in actual deletion mode
-export INPUTS_DRY_RUN="false"
-export INPUTS_WEEKS_THRESHOLD="2"
-export INPUTS_DEFAULT_BRANCH="main"
-export GITHUB_TOKEN="mock-token"
+# Token handling - use actual token in GitHub Actions, mock token in local dev
+if [[ -n "${GITHUB_ACTIONS}" ]]; then
+  # In GitHub Actions workflow, GITHUB_TOKEN is already available
+  echo "Using GitHub-provided token"
+else
+  # For local testing, use a mock token
+  export GITHUB_TOKEN="mock-token"
+  echo "Using mock token for local testing"
+fi
+
+# Set up environment variables following GitHub Actions conventions
+export INPUT_DRY_RUN="false"
+export INPUT_WEEKS_THRESHOLD="2"
+export INPUT_DEFAULT_BRANCH="main"
+export INPUT_GITHUB_TOKEN="${GITHUB_TOKEN}"
 
 # Export the variables in the format expected by delete-stale-branches.sh
-export DRY_RUN="${INPUTS_DRY_RUN}"
-export WEEKS_THRESHOLD="${INPUTS_WEEKS_THRESHOLD}"
-export DEFAULT_BRANCH="${INPUTS_DEFAULT_BRANCH}"
+export DRY_RUN="${INPUT_DRY_RUN}"
+export WEEKS_THRESHOLD="${INPUT_WEEKS_THRESHOLD}"
+export DEFAULT_BRANCH="${INPUT_DEFAULT_BRANCH}"
 
 # Source the GITHUB_ENV to get the variables
 # shellcheck source=/dev/null
