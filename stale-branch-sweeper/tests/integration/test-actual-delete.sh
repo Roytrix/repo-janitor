@@ -18,17 +18,17 @@ export INPUTS_WEEKS_THRESHOLD="2"
 export INPUTS_DEFAULT_BRANCH="main"
 export GITHUB_TOKEN="mock-token"
 
-# Run the individual scripts just like the action would
-"$GITHUB_ACTION_PATH/scripts/set-variables.sh"
-"$GITHUB_ACTION_PATH/scripts/fetch-protected-branches.sh"
-"$GITHUB_ACTION_PATH/scripts/validate-inputs.sh"
+# Export the variables in the format expected by delete-stale-branches.sh
+export DRY_RUN="${INPUTS_DRY_RUN}"
+export WEEKS_THRESHOLD="${INPUTS_WEEKS_THRESHOLD}"
+export DEFAULT_BRANCH="${INPUTS_DEFAULT_BRANCH}"
 
 # Source the GITHUB_ENV to get the variables
 # shellcheck source=/dev/null
 source "$GITHUB_ENV"
 
 # Run the delete script
-"$GITHUB_ACTION_PATH/scripts/delete-stale-branches.sh"
+"$GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Verify stale-branch and old-branch don't exist anymore
 if git ls-remote --exit-code --heads origin stale-branch >/dev/null 2>&1; then

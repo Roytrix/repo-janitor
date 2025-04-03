@@ -18,16 +18,11 @@ export INPUTS_WEEKS_THRESHOLD="2"
 export INPUTS_DEFAULT_BRANCH="main"
 export GITHUB_TOKEN="mock-token"
 
-# Run the individual scripts just like the action would
-"$GITHUB_ACTION_PATH/scripts/set-variables.sh"
-"$GITHUB_ACTION_PATH/scripts/fetch-protected-branches.sh"
-"$GITHUB_ACTION_PATH/scripts/validate-inputs.sh"
-
 # Source the GITHUB_ENV to get the variables
 source "$GITHUB_ENV"
 
 # Run the delete script
-"$GITHUB_ACTION_PATH/scripts/delete-stale-branches.sh"
+"$GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Verify branches still exist (since it's a dry run)
 # Check if stale-branch still exists
