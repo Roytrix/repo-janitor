@@ -15,6 +15,17 @@ source "$SCRIPT_DIR/utils/mock-repo.sh"
 setup_test_repo "$TEST_REPO_DIR/repo"
 cd "$TEST_REPO_DIR/repo"
 
+# Set up GitHub Actions environment variables
+export GITHUB_WORKSPACE="$TEST_REPO_DIR/repo"
+export GITHUB_REPOSITORY="owner/repo"
+export GITHUB_ACTION_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+export GITHUB_ENV="$TEST_REPO_DIR/github_env"
+export GITHUB_OUTPUT="$TEST_REPO_DIR/github_output"
+
+# Create GitHub env file
+touch "$GITHUB_ENV"
+touch "$GITHUB_OUTPUT"
+
 # Token handling - use actual token in GitHub Actions, mock token in local dev
 if [[ -n "${GITHUB_ACTIONS}" ]]; then
   # In GitHub Actions workflow, GITHUB_TOKEN is already available
@@ -31,17 +42,13 @@ export INPUT_WEEKS_THRESHOLD="2"
 export INPUT_DEFAULT_BRANCH="main"
 export INPUT_GITHUB_TOKEN="${GITHUB_TOKEN}"
 
-# Export the variables in the format expected by delete-stale-branches.sh
-export DRY_RUN="${INPUT_DRY_RUN}"
-export WEEKS_THRESHOLD="${INPUT_WEEKS_THRESHOLD}"
-export DEFAULT_BRANCH="${INPUT_DEFAULT_BRANCH}"
+# Source the GITHUB_ENV to get the variables if it exists
+if [[ -f "$GITHUB_ENV" ]]; then
+  source "$GITHUB_ENV"
+fi
 
-# Source the GITHUB_ENV to get the variables
-# shellcheck source=/dev/null
-source "$GITHUB_ENV"
-
-# Run the delete script
-"$GITHUB_ACTION_PATH/scripts/execute.sh"
+# Run the execute script directly
+"$GITHUB_ACTION_PATH/stale-branch-sweeper/scripts/execute.sh"
 
 # Verify stale-branch and old-branch don't exist anymore
 if git ls-remote --exit-code --heads origin stale-branch >/dev/null 2>&1; then
