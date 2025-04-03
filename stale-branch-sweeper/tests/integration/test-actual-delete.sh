@@ -47,8 +47,8 @@ if [[ -f "$GITHUB_ENV" ]]; then
   source "$GITHUB_ENV"
 fi
 
-# Run the execute script directly
-"$GITHUB_ACTION_PATH/stale-branch-sweeper/scripts/execute.sh"
+# Run the execute 
+"$GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Verify stale-branch and old-branch don't exist anymore
 if git ls-remote --exit-code --heads origin stale-branch >/dev/null 2>&1; then

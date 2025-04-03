@@ -48,7 +48,7 @@ if [[ -f "$GITHUB_ENV" ]]; then
 fi
 
 # Run the execute script directly
-"$GITHUB_ACTION_PATH/stale-branch-sweeper/scripts/execute.sh"
+"$GITHUB_ACTION_PATH/scripts/execute.sh"
 
 # Verify branches still exist (since it's a dry run)
 # Check if stale-branch still exists
