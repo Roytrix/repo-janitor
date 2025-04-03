@@ -23,104 +23,40 @@ cd "$TEST_REPO_DIR/repo"
 # Set up GitHub Actions environment variables
 export GITHUB_WORKSPACE="$TEST_REPO_DIR/repo"
 export GITHUB_REPOSITORY="owner/repo"
-
-# Use absolute path to the action root directory
 export GITHUB_ACTION_PATH="$ACTION_ROOT"
 export GITHUB_ENV="$TEST_REPO_DIR/github_env"
 export GITHUB_OUTPUT="$TEST_REPO_DIR/github_output"
 
-# Debug output to verify paths
-echo "================================================================"
-echo "🔍 DEBUG: SCRIPT PATHS"
-echo "Test script path: $TEST_SCRIPT_PATH"
-echo "Test script dir: $TEST_SCRIPT_DIR"
-echo "Tests dir: $TESTS_DIR"
-echo "Action root: $ACTION_ROOT"
-echo "================================================================"
-
-echo "================================================================"
-echo "🔍 DEBUG: GITHUB_ACTION_PATH"
-echo "GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH"
-echo "Execute script path: $GITHUB_ACTION_PATH/scripts/execute.sh"
-echo "================================================================"
-
-# Create GitHub env file
+# Create GitHub env and output files
 touch "$GITHUB_ENV"
 touch "$GITHUB_OUTPUT"
 
-# Token handling - use actual token in GitHub Actions, mock token in local dev
-if [[ -n "${GITHUB_ACTIONS}" ]]; then
-  # In GitHub Actions workflow, GITHUB_TOKEN is already available
-  echo "Using GitHub-provided token"
-else
-  # For local testing, use a mock token
-  export GITHUB_TOKEN="mock-token"
-  echo "Using mock token for local testing"
-fi
-
-# Set up environment variables following GitHub Actions conventions
+# Use GitHub-provided token
 export INPUT_DRY_RUN="true"
 export INPUT_WEEKS_THRESHOLD="2"
 export INPUT_DEFAULT_BRANCH="main"
 export INPUT_GITHUB_TOKEN="${GITHUB_TOKEN}"
 
-# Debug output for environment variables
-echo "================================================================"
-echo "🔍 DEBUG: ENVIRONMENT VARIABLES"
-echo "GITHUB_TOKEN: ${GITHUB_TOKEN:0:3}... (partially hidden)"
-echo "INPUT_GITHUB_TOKEN: ${INPUT_GITHUB_TOKEN:0:3}... (partially hidden)"
-echo "INPUT_DRY_RUN: ${INPUT_DRY_RUN}"
-echo "INPUT_WEEKS_THRESHOLD: ${INPUT_WEEKS_THRESHOLD}"
-echo "INPUT_DEFAULT_BRANCH: ${INPUT_DEFAULT_BRANCH}"
-echo "================================================================"
-
 # Ensure INPUT_GITHUB_TOKEN is explicitly set and not empty
 if [ -z "${INPUT_GITHUB_TOKEN}" ]; then
-  echo "❌ ERROR: INPUT_GITHUB_TOKEN is empty before running the script"
+  echo "❌ ERROR: Required input 'github-token' is missing"
   exit 1
-fi
-
-# Source the GITHUB_ENV to get the variables if it exists
-if [[ -f "$GITHUB_ENV" ]]; then
-  source "$GITHUB_ENV"
 fi
 
 # Verify the script exists before running
 if [ ! -f "$GITHUB_ACTION_PATH/scripts/execute.sh" ]; then
   echo "ERROR: Execute script not found at $GITHUB_ACTION_PATH/scripts/execute.sh"
-  echo "Current directory: $(pwd)"
-  echo "GITHUB_ACTION_PATH contents:"
-  ls -la "$GITHUB_ACTION_PATH" || echo "Directory not found"
-  echo "Scripts directory contents:"
-  ls -la "$GITHUB_ACTION_PATH/scripts/" || echo "Directory not found"
   exit 1
 fi
 
-echo "✅ Execute script found at: $GITHUB_ACTION_PATH/scripts/execute.sh"
-
-# Make sure the script is executable
+# Make sure the scripts are executable
 chmod +x "$GITHUB_ACTION_PATH/scripts/execute.sh"
-echo "✅ Execute script is now executable"
-
-# Also ensure setup.sh is executable
 chmod +x "$GITHUB_ACTION_PATH/scripts/setup.sh"
-echo "✅ Setup script is now executable"
+chmod +x "$GITHUB_ACTION_PATH/scripts/cleanup.sh"
+chmod +x "$GITHUB_ACTION_PATH/scripts/delete-stale-branches.sh"
 
-# Debug the setup.sh script
-echo "================================================================"
-echo "🔍 DEBUG: SETUP.SH CONTENT"
-head -n 20 "$GITHUB_ACTION_PATH/scripts/setup.sh"
-echo "... (truncated)"
-echo "================================================================"
-
-# Run the execute script with trace mode
-echo "Running execute script: $GITHUB_ACTION_PATH/scripts/execute.sh"
-echo "================================================================"
-set -x
+# Run the execute script
 "$GITHUB_ACTION_PATH/scripts/execute.sh"
-set +x
-echo "================================================================"
-echo "✅ Execute script completed"
 
 # Verify branches still exist (since it's a dry run)
 # Check if stale-branch still exists
