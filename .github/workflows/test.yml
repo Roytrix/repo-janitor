@@ -29,7 +29,6 @@ jobs:
         chmod +x stale-branch-sweeper/entrypoint.sh
         chmod +x stale-branch-sweeper/scripts/*.sh
         chmod +x stale-branch-sweeper/tests/run-tests.sh
-        chmod +x stale-branch-sweeper/tests/unit/*.sh 2>/dev/null || true
         chmod +x stale-branch-sweeper/tests/integration/*.sh
         echo "::debug::Made scripts executable"
     
