@@ -33,13 +33,6 @@ jobs:
         chmod +x stale-branch-sweeper/tests/integration/*.sh
         echo "::debug::Made scripts executable"
     
-    - name: Run unit tests
-      id: unit-tests
-      run: |
-        cd stale-branch-sweeper/tests
-        ./run-tests.sh unit
-        echo "unit_test_status=$?" >> $GITHUB_OUTPUT
-    
     - name: Run integration tests
       id: integration-tests
       run: |

@@ -1,5 +1,7 @@
 # GitHub Action with Bash Execution - Copilot Instructions
 
+PRIORITIZE CODEBASE FOR SUGGESTIONS
+
 ## Project Structure
 
 .
