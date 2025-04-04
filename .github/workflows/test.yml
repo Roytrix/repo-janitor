@@ -23,6 +23,11 @@ jobs:
       run: |
         gh --version
     
+    - name: Make test branch creation script executable
+      run: |
+        chmod +x ./stale-branch-sweeper/tests/integration/utils/create-tests-branches.sh
+        echo "::debug::Made create-tests-branches.sh executable"
+    
     - name: Run test branch creation script
       run: ./stale-branch-sweeper/tests/integration/utils/create-tests-branches.sh
       env:
@@ -49,7 +54,7 @@ jobs:
       run: |
         cd stale-branch-sweeper/tests
         ./run-tests.sh integration
-        echo "integration_test_status=$?" >> $GITHUB_OUTPUT
+        echo "integration_test_status=$?" >> "${GITHUB_OUTPUT}"
     
     - name: Upload test results
       if: always()
@@ -62,7 +67,7 @@ jobs:
     - name: Check test status
       if: always()
       run: |
-        if [["${{ steps.integration-tests.outputs.integration_test_status }}" != "0" ]]; then
+        if [[ "${{ steps.integration-tests.outputs.integration_test_status }}" != "0" ]]; then
           echo "::error::Tests failed"
           exit 1
         fi
