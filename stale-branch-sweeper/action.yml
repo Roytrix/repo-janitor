@@ -43,7 +43,7 @@ runs:
       shell: bash
       run: |
         chmod +x ${{ github.action_path }}/entrypoint.sh
-        chmod +x ${{ github.action_path }}/scripts/*.sh
+        chmod +x ${{ github.action_path }}/stale-branch-sweeper/scripts/*.sh
 
     - name: Run branch sweeper
       shell: bash
@@ -51,13 +51,17 @@ runs:
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
         GITHUB_TOKEN: ${{ inputs.github_token }}
-        GH_TOKEN: ${{ inputs.github_token }}
         INPUTS_DRY_RUN: ${{ inputs.dry_run }}
         INPUTS_WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
         INPUTS_DEFAULT_BRANCH: ${{ inputs.default_branch }}
-        INPUTS_DEBUG: ${{ inputs.debug }}
+        INPUTS_DEBUG: "true"  # Hardcoded to true, ignoring inputs.debug
         GITHUB_EVENT_REPOSITORY_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      run: ${{ github.action_path }}/entrypoint.sh
+      run: |
+        # Enable GitHub Actions debug logging
+        echo "::debug::Running with debug mode forced enabled"
+        # Set bash to verbose mode
+        set -x
+        ${{ github.action_path }}/entrypoint.sh
 
     - name: Upload summary as artifact
       if: always()

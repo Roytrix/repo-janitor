@@ -1,25 +1,6 @@
-#!/bin/bash
-#
-# branch-cleaner.sh - Clean up stale branches that have been merged
-# 
-# Usage: ./branch-cleaner.sh [OPTIONS]
-#
-# Options:
-#   --dry-run=BOOL        Run in dry-run mode (true/false)
-#   --weeks-threshold=N   Age threshold in weeks (default: 2)
-#
-# Environment variables:
-#   PROTECTED_BRANCHES    Space-separated list of protected branches
-#
-# Exit codes:
-#   0   Success
-#   1   Invalid arguments
-#   2   Execution error
-#
-# Version: 1.0.1
-
-set -e
-set -o pipefail
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
 
 # Parse arguments
 DRY_RUN="${DRY_RUN}"

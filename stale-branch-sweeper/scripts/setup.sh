@@ -1,6 +1,6 @@
-#!/bin/bash
-set -e
-set -o pipefail
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
 
 # Setup script for stale-branch-sweeper
 echo "Setting up environment..."
@@ -16,31 +16,31 @@ fi
 # Set days stale (priority to INPUT_DAYS_STALE)
 if [ -z "${INPUT_DAYS_STALE}" ]; then
   echo "::warning::Using default value for 'days-stale'"
-  DAYS_STALE=90
+  DAYS_STALE="90"
 else
   DAYS_STALE="${INPUT_DAYS_STALE}"
 fi
-echo "DAYS_STALE=${DAYS_STALE}" >> $GITHUB_ENV
+echo "DAYS_STALE=${DAYS_STALE}" >> "${GITHUB_ENV}"
 
 # Determine if this is a dry run (check both variable sources)
 DRY_RUN="${GITHUB_EVENT_INPUTS_DRY_RUN:-${INPUT_DRY_RUN:-false}}"
-echo "DRY_RUN=${DRY_RUN}" >> $GITHUB_ENV
+echo "DRY_RUN=${DRY_RUN}" >> "${GITHUB_ENV}"
 
 # Set exclude pattern
 EXCLUDE_PATTERN="${INPUT_EXCLUDE_PATTERN:-}"
-echo "EXCLUDE_PATTERN=${EXCLUDE_PATTERN}" >> $GITHUB_ENV
+echo "EXCLUDE_PATTERN=${EXCLUDE_PATTERN}" >> "${GITHUB_ENV}"
 
 # Set skip confirmation
 SKIP_CONFIRMATION="${INPUT_SKIP_CONFIRMATION:-false}"
-echo "SKIP_CONFIRMATION=${SKIP_CONFIRMATION}" >> $GITHUB_ENV
+echo "SKIP_CONFIRMATION=${SKIP_CONFIRMATION}" >> "${GITHUB_ENV}"
 
 # Set repository
 REPOSITORY="${GITHUB_REPOSITORY}"
-echo "REPOSITORY=${REPOSITORY}" >> $GITHUB_ENV
+echo "REPOSITORY=${REPOSITORY}" >> "${GITHUB_ENV}"
 
 # Determine weeks threshold
 WEEKS_THRESHOLD="${GITHUB_EVENT_INPUTS_WEEKS_THRESHOLD:-${INPUT_WEEKS_THRESHOLD:-2}}"
-echo "WEEKS_THRESHOLD=${WEEKS_THRESHOLD}" >> $GITHUB_ENV
+echo "WEEKS_THRESHOLD=${WEEKS_THRESHOLD}" >> "${GITHUB_ENV}"
 
 # Determine default branch
 if [[ -n "${INPUT_DEFAULT_BRANCH}" ]]; then
@@ -48,7 +48,7 @@ if [[ -n "${INPUT_DEFAULT_BRANCH}" ]]; then
 else
   DEFAULT_BRANCH="${GITHUB_EVENT_REPOSITORY_DEFAULT_BRANCH}"
 fi
-echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}" >> $GITHUB_ENV
+echo "DEFAULT_BRANCH=${DEFAULT_BRANCH}" >> "${GITHUB_ENV}"
 
 # Enable debug mode if specified
 if [ "${INPUT_DEBUG:-false}" = "true" ]; then
@@ -69,7 +69,7 @@ fi
 
 # Fetch protected branches
 PROTECTED_BRANCHES=$(gh api "repos/${GITHUB_REPOSITORY}/branches" --jq '.[] | select(.protected) | .name' | tr '\n' ' ')
-echo "PROTECTED_BRANCHES=${PROTECTED_BRANCHES}" >> $GITHUB_ENV
+echo "PROTECTED_BRANCHES=${PROTECTED_BRANCHES}" >> "${GITHUB_ENV}"
 
 # Configure git
 git config --global user.name "GitHub Actions Bot"

@@ -1,5 +1,6 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
 
 # Performs cleanup after branch sweeper execution
 

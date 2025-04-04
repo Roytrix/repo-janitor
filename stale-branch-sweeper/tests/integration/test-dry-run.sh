@@ -1,5 +1,6 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
 
 # Get the absolute path to the test script itself, regardless of where it's called from
 TEST_SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"

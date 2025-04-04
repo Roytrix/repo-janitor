@@ -1,5 +1,6 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
+set -x
 
 # Change to the tests directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

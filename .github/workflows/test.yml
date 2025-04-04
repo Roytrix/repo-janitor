@@ -18,23 +18,44 @@ jobs:
         # Install any dependencies needed for testing
         sudo apt-get update
         sudo apt-get install -y jq
+        echo "::debug::Test environment setup complete"
 
-    - name: Make test scripts executable
+    - name: Make scripts executable
       run: |
-        chmod +x stale-branch-sweeper/tests/run-tests.sh
-        chmod +x stale-branch-sweeper/tests/utils/*.sh
-        chmod +x stale-branch-sweeper/tests/integration/*.sh
-        chmod +x stale-branch-sweeper/scripts/*.sh
+        chmod +x entrypoint.sh
+        chmod +x scripts/*.sh
+        chmod +x tests/run-tests.sh
+        chmod +x tests/unit/*.sh
+        chmod +x tests/integration/*.sh
+        echo "::debug::Made scripts executable"
+    
+    - name: Run unit tests
+      id: unit-tests
+      run: |
+        cd tests
+        ./run-tests.sh unit
+        echo "unit_test_status=$?" >> $GITHUB_OUTPUT
     
     - name: Run integration tests
+      id: integration-tests
       run: |
-        cd stale-branch-sweeper/tests
-        ./run-tests.sh
+        cd tests
+        ./run-tests.sh integration
+        echo "integration_test_status=$?" >> $GITHUB_OUTPUT
     
     - name: Upload test results
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: stale-branch-sweeper/tests/results/
+        path: tests/results/
         retention-days: 7
+        
+    - name: Check test status
+      if: always()
+      run: |
+        if [[ "${{ steps.unit-tests.outputs.unit_test_status }}" != "0" || "${{ steps.integration-tests.outputs.integration_test_status }}" != "0" ]]; then
+          echo "::error::Tests failed"
+          exit 1
+        fi
+        echo "::debug::All tests passed successfully"
