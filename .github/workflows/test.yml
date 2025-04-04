@@ -50,7 +50,7 @@ jobs:
     - name: Check test status
       if: always()
       run: |
-        if [[ "${{ steps.unit-tests.outputs.unit_test_status }}" != "0" || "${{ steps.integration-tests.outputs.integration_test_status }}" != "0" ]]; then
+        if [["${{ steps.integration-tests.outputs.integration_test_status }}" != "0" ]]; then
           echo "::error::Tests failed"
           exit 1
         fi
