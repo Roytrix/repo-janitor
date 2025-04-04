@@ -22,24 +22,24 @@ jobs:
 
     - name: Make scripts executable
       run: |
-        chmod +x entrypoint.sh
-        chmod +x scripts/*.sh
-        chmod +x tests/run-tests.sh
-        chmod +x tests/unit/*.sh
-        chmod +x tests/integration/*.sh
+        chmod +x stale-branch-sweeper/entrypoint.sh
+        chmod +x stale-branch-sweeper/scripts/*.sh
+        chmod +x stale-branch-sweeper/tests/run-tests.sh
+        chmod +x stale-branch-sweeper/tests/unit/*.sh 2>/dev/null || true
+        chmod +x stale-branch-sweeper/tests/integration/*.sh
         echo "::debug::Made scripts executable"
     
     - name: Run unit tests
       id: unit-tests
       run: |
-        cd tests
+        cd stale-branch-sweeper/tests
         ./run-tests.sh unit
         echo "unit_test_status=$?" >> $GITHUB_OUTPUT
     
     - name: Run integration tests
       id: integration-tests
       run: |
-        cd tests
+        cd stale-branch-sweeper/tests
         ./run-tests.sh integration
         echo "integration_test_status=$?" >> $GITHUB_OUTPUT
     
@@ -48,7 +48,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-results
-        path: tests/results/
+        path: stale-branch-sweeper/tests/results/
         retention-days: 7
         
     - name: Check test status
