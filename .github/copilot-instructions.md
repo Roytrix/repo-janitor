@@ -39,7 +39,7 @@ Repo Janitor is a GitHub Action that automates repository maintenance tasks usin
 
 ## Testing Approach
 - Create test workflows in workflows
-- Test action against multiple OS environments
+- Test action only run in github.com
 - Include unit tests for bash functions
 - Test with various input combinations
 - Validate all outputs
