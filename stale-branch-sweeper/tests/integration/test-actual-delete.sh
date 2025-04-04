@@ -7,6 +7,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Define the utils directory path
 UTILS_DIR="${SCRIPT_DIR}/utils"
 
+# Make utility scripts executable
+echo "Making utility scripts executable..."
+find "${UTILS_DIR}" -name "*.sh" -exec chmod +x {} \;
+
 # Use setup-testing-env.sh to create test branches
 echo "Setting up test environment with test branches..."
 WEEKS_THRESHOLD="2"
