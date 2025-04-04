@@ -2,11 +2,14 @@
 set -euo pipefail
 set -x
 
+# Get the absolute path to the script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Define the utils directory path
+UTILS_DIR="${SCRIPT_DIR}/utils"
 
 # Use setup-testing-env.sh to create test branches
 echo "Setting up test environment with test branches..."
 WEEKS_THRESHOLD="2"
-
 
 # Run setup testing environment script to create branches
 OUTPUT_FILE=$(mktemp)
@@ -54,8 +57,6 @@ chmod +x "$GITHUB_ACTION_PATH/scripts/execute.sh"
 chmod +x "$GITHUB_ACTION_PATH/scripts/setup.sh"
 chmod +x "$GITHUB_ACTION_PATH/scripts/cleanup.sh"
 chmod +x "$GITHUB_ACTION_PATH/scripts/sweeping.sh"
-
-
 
 # Run the execute script
 "$GITHUB_ACTION_PATH/scripts/execute.sh"
