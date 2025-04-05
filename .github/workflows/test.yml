@@ -31,7 +31,7 @@ jobs:
     - name: Run test branch creation script
       run: ./stale-branch-sweeper/tests/integration/utils/create-tests-branches.sh
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ secrets.REPO_JANITOR_APP }}
         GITHUB_OUTPUT: ${{ runner.temp }}/github_output
     
     - name: Set up test environment
