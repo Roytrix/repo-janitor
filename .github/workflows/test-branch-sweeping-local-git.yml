@@ -1,4 +1,4 @@
-name: Test Branch Sweeping
+name: Test Branch Sweeping local git
 
 on:
   workflow_dispatch:
