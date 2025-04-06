@@ -18,6 +18,12 @@ DEFAULT_BRANCH="${3}"
 PROTECTED_BRANCHES="${4}"
 GITHUB_REPOSITORY="${5}"
 
+# Check if we're in test mode
+TEST_MODE="${GITHUB_TEST_MODE:-false}"
+if [[ "$TEST_MODE" == "true" ]]; then
+    echo "Running in test mode - bypassing GitHub API calls"
+fi
+
 # Validate inputs
 if [[ -z "$WEEKS_THRESHOLD" || ! "$WEEKS_THRESHOLD" =~ ^[0-9]+$ ]]; then
   echo "::error::weeks_threshold must be a positive number"
@@ -79,6 +85,92 @@ echo "Finding merged branches..."
 # Debug: Show what for-each-ref is returning
 echo "DEBUG: Examining branch references from git:"
 git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs/remotes/origin/ | head -5
+
+if [[ "$TEST_MODE" == "true" ]]; then
+    # In test mode, create a summary file
+    SUMMARY_FILE="summary.md"
+    echo "# Branch Cleanup Summary" > "$SUMMARY_FILE"
+    echo "Generated on: $(date)" >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
+    echo "## Configuration" >> "$SUMMARY_FILE"
+    echo "- Dry run: $DRY_RUN" >> "$SUMMARY_FILE"
+    echo "- Weeks threshold: $WEEKS_THRESHOLD" >> "$SUMMARY_FILE"
+    echo "- Default branch: $DEFAULT_BRANCH" >> "$SUMMARY_FILE"
+    echo "- Protected branches: $PROTECTED_BRANCHES" >> "$SUMMARY_FILE"
+    echo "" >> "$SUMMARY_FILE"
+    echo "## Results" >> "$SUMMARY_FILE"
+    
+    # Track deleted branches
+    DELETED_BRANCHES=()
+    
+    # Process all branches
+    echo "## Processing branches in test mode"
+    for branch in $(git branch | grep -v -E "^\\*|$DEFAULT_BRANCH" | tr -d " "); do
+        if [[ "$VERBOSE" == "true" ]]; then
+            echo "DEBUG: Processing branch $branch"
+        fi
+        
+        # Skip protected branches
+        if [[ " $PROTECTED_BRANCHES " =~ " $branch " ]]; then
+            echo "Branch $branch is protected, skipping"
+            continue
+        fi
+        
+        # Get last commit date
+        COMMIT_DATE=$(git log -1 --format="%ct" "$branch")
+        BRANCH_AGE=$((CURRENT_DATE - COMMIT_DATE))
+        BRANCH_AGE_DAYS=$((BRANCH_AGE / 86400))
+        
+        # Check if branch is merged
+        BRANCH_IS_MERGED=false
+        if git branch --merged "$DEFAULT_BRANCH" | grep -q "$branch"; then
+            BRANCH_IS_MERGED=true
+        fi
+        
+        DELETE_REASON=""
+        SHOULD_DELETE=false
+        
+        # Check deletion criteria
+        if [[ "$BRANCH_IS_MERGED" == "true" && $COMMIT_DATE -lt $CUTOFF_DATE ]]; then
+            DELETE_REASON="Merged and older than $WEEKS_THRESHOLD weeks"
+            SHOULD_DELETE=true
+        elif [[ "$BRANCH_IS_MERGED" == "false" && $COMMIT_DATE -lt $MONTH_CUTOFF_DATE ]]; then
+            DELETE_REASON="Unmerged but older than 1 month"
+            SHOULD_DELETE=true
+        fi
+        
+        if [[ "$SHOULD_DELETE" == "true" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "Would delete branch $branch: $DELETE_REASON (dry run)"
+                echo "- $branch: $DELETE_REASON (would be deleted - dry run)" >> "$SUMMARY_FILE"
+            else
+                echo "Deleting branch $branch: $DELETE_REASON"
+                echo "- $branch: $DELETE_REASON (deleted)" >> "$SUMMARY_FILE"
+                git branch -D "$branch"
+                DELETED_BRANCHES+=("$branch")
+            fi
+        else
+            echo "Keeping branch $branch: Age $BRANCH_AGE_DAYS days, Merged: $BRANCH_IS_MERGED"
+            echo "- $branch: Keeping (Age: $BRANCH_AGE_DAYS days, Merged: $BRANCH_IS_MERGED)" >> "$SUMMARY_FILE"
+        fi
+    done
+    
+    # Summary
+    echo "" >> "$SUMMARY_FILE"
+    echo "## Summary" >> "$SUMMARY_FILE"
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo "Dry run completed. Would have deleted ${#DELETED_BRANCHES[@]} branches." >> "$SUMMARY_FILE"
+    else
+        echo "Deleted ${#DELETED_BRANCHES[@]} branches." >> "$SUMMARY_FILE"
+    fi
+    
+    # Set output for GitHub Actions
+    if [[ -n "$GITHUB_OUTPUT" ]]; then
+        echo "deleted_count=${#DELETED_BRANCHES[@]}" >> $GITHUB_OUTPUT
+    fi
+    
+    exit 0
+fi
 
 while read -r BRANCH_INFO; do
   # More reliable extraction - strip origin/ prefix but keep the rest intact
