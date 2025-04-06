@@ -1,0 +1,84 @@
+name: 'Branch Sweeper'
+description: 'Automatically cleans up dusty branches in GitHub repositories'
+author: 'GitHub Actions'
+
+inputs:
+  dry_run:
+    description: 'Run in dry-run mode (no actual deletions)'
+    required: false
+    default: 'false'
+  weeks_threshold:
+    description: 'Age threshold in weeks'
+    required: false
+    default: '2'
+  default_branch:
+    description: 'Default branch name (if empty, will be auto-detected from repository)'
+    required: false
+    default: ''
+  token:
+    description: 'GitHub PAT with repo permissions'
+    required: true
+
+outputs:
+  deleted_count:
+    description: 'Number of branches deleted'
+    value: ${{ steps.delete-branches.outputs.deleted_count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history
+        token: ${{ inputs.token }}
+    
+    - name: Set script permissions
+      shell: bash
+      run: |
+        chmod +x ${{ github.action_path }}/scripts/*.sh
+
+    - name: Set variables
+      shell: bash
+      id: variables
+      run: ${{ github.action_path }}/scripts/set-variables.sh "${{ inputs.dry_run }}" "${{ inputs.weeks_threshold }}" "${{ inputs.default_branch }}" "${{ github.event.repository.default_branch }}"
+
+    - name: Fetch protected branches
+      id: fetch-protected-branches
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: ${{ github.action_path }}/scripts/fetch-protected-branches.sh "${{ github.repository }}"
+
+    - name: Show protected branches
+      shell: bash
+      run: ${{ github.action_path }}/scripts/show-protected-branches.sh "${{ env.PROTECTED_BRANCHES }}"
+
+    - name: Validate inputs
+      shell: bash
+      run: ${{ github.action_path }}/scripts/validate-inputs.sh "${{ inputs.weeks_threshold }}"
+
+    - name: sweeping dusty branches
+      shell: bash
+      id: delete-branches
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+      run: ${{ github.action_path }}/scripts/sweeping.sh "${{ env.DRY_RUN }}" "${{ env.WEEKS_THRESHOLD }}" "${{ env.DEFAULT_BRANCH }}" "${{ env.PROTECTED_BRANCHES }}" "${{ github.repository }}"
+
+    - name: Upload summary
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: branch-cleanup-summary
+        path: summary.md
+        retention-days: 7
+
+    - name: Post summary
+      if: always()
+      shell: bash
+      run: |
+        if [ -f summary.md ]; then
+          cat summary.md >> $GITHUB_STEP_SUMMARY
+        else
+          echo "::warning::Summary file not found"
+        fi
