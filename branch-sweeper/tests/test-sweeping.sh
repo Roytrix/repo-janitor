@@ -97,7 +97,21 @@ run_test() {
     echo -e "\n${YELLOW}Running sweeping script with verbose mode:${NC}"
     export DEBUG=true
     
-    "$SWEEPING_SCRIPT" "$dry_run" "$weeks" "$default_branch" "$protected_branches" "$repo"
+    # Set up environment variables to bypass GitHub API calls
+    export GITHUB_TEST_MODE=true
+    
+    # Run the script with relative paths
+    cd ./repo-test
+    SUMMARY_PATH="../summary-$test_name.md"
+    
+    "$SWEEPING_SCRIPT" "$dry_run" "$weeks" "$default_branch" "$protected_branches" "local-test-repo"
+    
+    # Make a copy of any created summary file
+    if [ -f "summary.md" ]; then
+        cp summary.md "$SUMMARY_PATH"
+    fi
+    
+    cd ..
     
     echo -e "${GREEN}✓ Test completed: ${test_name}${NC}"
     
