@@ -10,8 +10,23 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Path to sweeping script
-SWEEPING_SCRIPT="../scripts/sweeping.sh"
+# Determine script locations based on where this script is run from
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+if [[ -f "${SCRIPT_DIR}/../scripts/sweeping.sh" ]]; then
+    # Running from the tests directory
+    SWEEPING_SCRIPT="${SCRIPT_DIR}/../scripts/sweeping.sh"
+    SETUP_SCRIPT="${SCRIPT_DIR}/test-repository-setup-script.sh"
+    CLEANUP_SCRIPT="${SCRIPT_DIR}/test-repository-cleanup-script.sh"
+elif [[ -f "${SCRIPT_DIR}/../../branch-sweeper/scripts/sweeping.sh" ]]; then
+    # Running from repo root
+    SWEEPING_SCRIPT="${SCRIPT_DIR}/../../branch-sweeper/scripts/sweeping.sh"
+    SETUP_SCRIPT="${SCRIPT_DIR}/test-repository-setup-script.sh" 
+    CLEANUP_SCRIPT="${SCRIPT_DIR}/test-repository-cleanup-script.sh"
+else
+    echo -e "${RED}Error: Cannot locate sweeping.sh script${NC}"
+    echo "This script must be run either from the tests directory or the repository root."
+    exit 1
+fi
 
 # Check if sweeping script exists
 if [ ! -f "$SWEEPING_SCRIPT" ]; then
@@ -32,17 +47,17 @@ run_test() {
     local protected_branches="$5"
     local repo="$6"
 
-# Make sure test repository setup is run first
-if [ ! -d "./repo-test" ]; then
-    echo "Setting up test repository first..."
-    if [ -f "./test-repository-setup-script.sh" ]; then
-        chmod +x ./test-repository-setup-script.sh
-        ./test-repository-setup-script.sh
-    else
-        echo -e "${RED}Error: Test repository setup script not found${NC}"
-        exit 1
+    # Make sure test repository setup is run first
+    if [ ! -d "./repo-test" ]; then
+        echo "Setting up test repository first..."
+        if [ -f "$SETUP_SCRIPT" ]; then
+            chmod +x "$SETUP_SCRIPT"
+            "$SETUP_SCRIPT"
+        else
+            echo -e "${RED}Error: Test repository setup script not found at $SETUP_SCRIPT${NC}"
+            exit 1
+        fi
     fi
-fi
     
     echo -e "\n${YELLOW}====================================${NC}"
     echo -e "${YELLOW}Running Test: ${test_name}${NC}"
@@ -80,11 +95,11 @@ fi
     # Clean up test repository after each test
     echo -e "${YELLOW}Cleaning up test repository...${NC}"
     if [ -d "./repo-test" ]; then
-        if [ -f "./test-repository-cleanup-script.sh" ]; then
-            chmod +x ./test-repository-cleanup-script.sh
-            ./test-repository-cleanup-script.sh
+        if [ -f "$CLEANUP_SCRIPT" ]; then
+            chmod +x "$CLEANUP_SCRIPT"
+            "$CLEANUP_SCRIPT"
         else
-            echo -e "${RED}Error: Test repository cleanup script not found${NC}"
+            echo -e "${RED}Error: Test repository cleanup script not found at $CLEANUP_SCRIPT${NC}"
             exit 1
         fi
         echo -e "${GREEN}Test repository cleaned up${NC}"
