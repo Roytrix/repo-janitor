@@ -38,6 +38,19 @@ fi
 # Make sure the script is executable
 chmod +x "$SWEEPING_SCRIPT"
 
+# Function to create a GitHub summary
+create_github_summary() {
+    local summary_file="github-summary.md"
+    
+    echo "# Branch Sweeper Test Results" > $summary_file
+    echo "$(date)" >> $summary_file
+    echo "" >> $summary_file
+    echo "## Test Scenarios" >> $summary_file
+    
+    # Add more information as needed
+    return $summary_file
+}
+
 # Function to run a test and report results
 run_test() {
     local test_name="$1"
@@ -91,6 +104,34 @@ run_test() {
     fi
     
     echo -e "${YELLOW}------------------------------------${NC}"
+
+    # Export to GitHub summary if running in GitHub Actions
+    if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+        echo -e "\n## Test: ${test_name}" >> $GITHUB_STEP_SUMMARY
+        echo "Parameters:" >> $GITHUB_STEP_SUMMARY
+        echo "- Dry Run: $dry_run" >> $GITHUB_STEP_SUMMARY
+        echo "- Weeks Threshold: $weeks" >> $GITHUB_STEP_SUMMARY
+        echo "- Default Branch: $default_branch" >> $GITHUB_STEP_SUMMARY
+        echo "- Protected Branches: $protected_branches" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "### Remaining branches:" >> $GITHUB_STEP_SUMMARY
+        cd ./repo-test
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        git branch -a >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        cd ..
+        
+        if [ -f "./repo-test/summary.md" ]; then
+            echo "### Cleanup Summary:" >> $GITHUB_STEP_SUMMARY
+            cat ./repo-test/summary.md >> $GITHUB_STEP_SUMMARY
+        elif [ -f "summary.md" ]; then
+            echo "### Cleanup Summary:" >> $GITHUB_STEP_SUMMARY
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "---" >> $GITHUB_STEP_SUMMARY
+    fi
 
     # Clean up test repository after each test
     echo -e "${YELLOW}Cleaning up test repository...${NC}"
