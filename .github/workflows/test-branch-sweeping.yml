@@ -1,0 +1,44 @@
+name: Test Branch Sweeping
+
+on:
+  workflow_dispatch:
+    inputs:
+      weeks_threshold:
+        description: 'Number of weeks to consider a branch stale'
+        required: true
+        default: '4'
+        type: number
+      dry_run:
+        description: 'Run in dry-run mode (no actual deletion)'
+        required: true
+        default: true
+        type: boolean
+      protected_branches:
+        description: 'Space-separated list of protected branches'
+        required: false
+        default: 'develop production'
+        type: string
+
+jobs:
+  test-sweeping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup test repository
+        run: |
+          chmod +x ./tests/test-repository-setup-script.sh
+          ./tests/test-repository-setup-script.sh
+      
+      - name: Run sweeping script
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
+          PROTECTED_BRANCHES: ${{ inputs.protected_branches }}
+        run: |
+          chmod +x ./scripts/sweeping.sh
+          ./scripts/sweeping.sh "$DRY_RUN" "$WEEKS_THRESHOLD" "main" "$PROTECTED_BRANCHES" "repo-test/tester"
+      
+      - name: Display summary
+        run: cat summary.md
