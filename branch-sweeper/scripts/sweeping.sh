@@ -42,6 +42,9 @@ echo "Deleting branches merged before: $(date -d @"$CUTOFF_DATE" '+%Y-%m-%d')"
 MONTH_CUTOFF_DATE=$(date -d "1 month ago" +%s)
 echo "Deleting branches older than a month: $(date -d @"$MONTH_CUTOFF_DATE" '+%Y-%m-%d')"
 
+# Get current timestamp for age calculations
+CURRENT_DATE=$(date +%s)
+
 # If DEFAULT_BRANCH is empty, determine it (fallback mechanism)
 if [[ -z "$DEFAULT_BRANCH" ]]; then
   DEFAULT_BRANCH=$(git remote show origin | grep "HEAD branch" | sed 's/.*: //')
