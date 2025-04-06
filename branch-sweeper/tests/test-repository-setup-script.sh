@@ -3,8 +3,9 @@
 set -e
 
 # Create a test git repository with various branch scenarios
-mkdir -p /repo-test
-cd /repo-test
+# Change from absolute path to relative path
+mkdir -p ./repo-test
+cd ./repo-test
 
 # Initialize the repository
 git init
