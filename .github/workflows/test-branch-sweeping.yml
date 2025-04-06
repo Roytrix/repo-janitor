@@ -28,8 +28,8 @@ jobs:
         
       - name: Setup test repository
         run: |
-          chmod +x ./branch-sweeper/tests/test-repository-setup-script.sh
-          ./branch-sweeper/tests/test-repository-setup-script.sh
+          chmod +x ./branch-sweeper/tests/test-sweeping.sh
+          ./branch-sweeper/tests/test-sweeping.sh
       
       - name: Run sweeping script
         env:
