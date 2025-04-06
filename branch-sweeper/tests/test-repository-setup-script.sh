@@ -2,6 +2,10 @@
 
 set -e
 
+# Configure git user identity
+git config --global user.name "GitHub Actions"
+git config --global user.email "actions@github.com"
+
 # Create a test git repository with various branch scenarios
 # Change from absolute path to relative path
 mkdir -p ./repo-test
