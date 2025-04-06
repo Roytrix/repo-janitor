@@ -16,7 +16,7 @@ on:
       protected_branches:
         description: 'Space-separated list of protected branches'
         required: false
-        default: 'develop production'
+        default: 'release/**'
         type: string
 
 jobs:
