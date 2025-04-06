@@ -83,6 +83,20 @@ run_test() {
     echo "  - Repository: $repo"
     echo -e "${YELLOW}------------------------------------${NC}"
     
+    # Debug branch dates
+    echo -e "\n${YELLOW}Checking branch dates before sweeping:${NC}"
+    cd ./repo-test
+    for branch in $(git branch | cut -c 3-); do
+        last_commit_date=$(git log -1 --format="%ci" $branch)
+        merged_status=$(git branch --merged main | grep -w $branch || echo "not merged")
+        echo "Branch $branch: Last commit: $last_commit_date, Status: $merged_status"
+    done
+    cd ..
+    
+    # Debug sweeping script with verbose mode
+    echo -e "\n${YELLOW}Running sweeping script with verbose mode:${NC}"
+    export DEBUG=true
+    
     "$SWEEPING_SCRIPT" "$dry_run" "$weeks" "$default_branch" "$protected_branches" "$repo"
     
     echo -e "${GREEN}✓ Test completed: ${test_name}${NC}"

@@ -3,6 +3,14 @@
 set -e
 set -o pipefail
 
+# Debug mode
+if [[ "${DEBUG}" == "true" ]]; then
+  set -x  # Print commands and their arguments as they are executed
+  VERBOSE=true
+else
+  VERBOSE=false
+fi
+
 # Parse arguments
 DRY_RUN="${1}"
 WEEKS_THRESHOLD="${2}"
@@ -168,6 +176,12 @@ while read -r BRANCH_INFO; do
     # Store initial branch existence state
     branch_exists "$branch"
     local existed_before=$?
+    
+    if [[ "${VERBOSE}" == "true" ]]; then
+      echo "DEBUG: Checking branch: $branch"
+      echo "DEBUG: Last commit date: $age"
+      echo "DEBUG: Cutoff date: $CUTOFF_DATE"
+    fi
     
     if [[ "$DRY_RUN" = "true" ]]; then
       echo "[DRY RUN] Would delete branch: $branch ($reason: $age) - not actually deleting in dry run mode"

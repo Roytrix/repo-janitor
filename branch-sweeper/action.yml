@@ -63,6 +63,7 @@ runs:
       id: delete-branches
       env:
         GH_TOKEN: ${{ inputs.token }}
+        DEBUG: true  # Add this line for verbose output
       run: ${{ github.action_path }}/scripts/sweeping.sh "${{ env.DRY_RUN }}" "${{ env.WEEKS_THRESHOLD }}" "${{ env.DEFAULT_BRANCH }}" "${{ env.PROTECTED_BRANCHES }}" "${{ github.repository }}"
 
     - name: Upload summary
