@@ -97,7 +97,8 @@ run_test() {
     local protected_branches="$5"
     
     # Get the current user and repo for the GitHub API - do this first
-    local gh_user=$(gh api user | jq -r .login)
+    local gh_user
+    gh_user=$(gh api user | jq -r .login)
     local gh_repo="${gh_user}/${REPO_NAME}"
     
     echo -e "\n${YELLOW}====================================${NC}"
