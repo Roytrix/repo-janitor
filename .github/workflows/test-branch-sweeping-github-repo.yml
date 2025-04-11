@@ -36,10 +36,12 @@ jobs:
       - name: Perform authenticated operations
         run: |
             chmod +x ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh
-            cd ./branch-sweeper/tests
-            ./test-sweeping.sh
+            ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh repo-janitor-testing
         env:
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PROTECTED_BRANCHES: ${{ inputs.protected_branches }}
 
       - name: Configure Git
         run: |
