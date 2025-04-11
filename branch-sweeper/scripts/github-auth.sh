@@ -138,15 +138,25 @@ get_github_user() {
     return 1
   fi
   
-  # For GitHub Apps, we might be operating as the app
+  # For GitHub Apps, we're operating as the app
   local user
-  if [ -n "${GITHUB_APP_NAME}" ]; then
-    user="${GITHUB_APP_NAME}"
+  if [ -n "${RJ_APP_ID}" ]; then
+    # We're authenticated as a GitHub App
+    user="app/repo-janitor"
+    echo "${user}"
+    return 0
   else
+    # Try to get user identity
     user=$(gh api user --jq '.login' 2>/dev/null)
     if [ $? -ne 0 ] || [ -z "$user" ]; then
-      echo "Failed to get GitHub user information."
-      return 1
+      # If user API fails but we're authenticated, use a default name
+      if gh auth status &>/dev/null; then
+        echo "github-actions[bot]"
+        return 0
+      else
+        echo "Failed to get GitHub user information."
+        return 1
+      fi
     fi
   fi
   
