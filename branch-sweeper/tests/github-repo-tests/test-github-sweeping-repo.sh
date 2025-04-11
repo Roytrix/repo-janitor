@@ -68,28 +68,59 @@ if ! echo "$AUTH_OUTPUT" | grep -q "repo"; then
     echo "This is required for repository operations"
 fi
 
-# Verify user API access
+# Verify API access (GitHub App compatible)
 echo -e "${YELLOW}Checking API access...${NC}"
-if ! USER_INFO=$(gh api user --jq '.login' 2>/dev/null); then
-    echo -e "${RED}Error: Cannot access GitHub API with current token${NC}"
+
+# For GitHub Apps, check repository API access instead of user API
+REPO_OWNER=${GITHUB_REPOSITORY_OWNER:-$(echo $GITHUB_REPOSITORY | cut -d '/' -f1)}
+REPO_NAME=${GITHUB_REPOSITORY#*/}
+FULL_REPO="${REPO_OWNER}/${REPO_NAME}"
+
+if [[ -z "$FULL_REPO" || "$FULL_REPO" == "/" ]]; then
+    # Try to get it from the remote
+    FULL_REPO=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+fi
+
+echo "Testing access to repository: $FULL_REPO"
+if ! REPO_INFO=$(gh api "repos/$FULL_REPO" --jq '.name' 2>/dev/null); then
+    echo -e "${RED}Error: Cannot access GitHub repository API with current token${NC}"
     echo "This might be due to insufficient permissions or a token issue"
-    echo "Full error: $(gh api user 2>&1 || echo 'API call failed')"
+    echo "Full error: $(gh api "repos/$FULL_REPO" 2>&1 || echo 'API call failed')"
     exit 1
 fi
 
-echo "Authenticated as: $USER_INFO"
+echo "Repository access verified: $REPO_INFO"
 
-# Test repository permissions specifically
+# Test repository permissions specifically for a GitHub App with:
+# - Read access to metadata
+# - Read and write access to administration, code, and pull requests
 echo -e "${YELLOW}Testing repository permissions...${NC}"
-TEST_REPO_NAME="permission-test-$(date +%s)"
-if ! gh api --method POST /user/repos -f name=$TEST_REPO_NAME -f private=true -f auto_init=true --silent; then
-    echo -e "${RED}Warning: Your token doesn't have repository creation permissions${NC}"
-    echo "The GitHub App token may need 'Repository: Administration' permissions"
-    echo "Tests that involve repository creation may fail"
+
+# Instead of creating a new repository (which requires different permissions),
+# test the specific permissions that Repo Janitor App has
+echo "Testing branch list access (code permission)..."
+if ! gh api "repos/$FULL_REPO/branches" --silent &>/dev/null; then
+    echo -e "${RED}Warning: Token doesn't have branch read access${NC}"
+    echo "The GitHub App needs 'Repository: Code' read permission"
+    echo "Branch sweeping operations may fail"
 else
-    echo -e "${GREEN}Repository creation permission verified${NC}"
-    # Clean up test repository
-    gh repo delete "$USER_INFO/$TEST_REPO_NAME" --yes || echo "Note: Failed to delete test repo, but creation worked"
+    echo -e "${GREEN}Branch read access verified${NC}"
+fi
+
+echo "Testing branch protection access (administration permission)..."
+if ! gh api "repos/$FULL_REPO/branches/main/protection" --silent &>/dev/null; then
+    echo -e "${YELLOW}Note: Token doesn't have branch protection access${NC}"
+    echo "This is okay if branch protection isn't enabled on this repository"
+else
+    echo -e "${GREEN}Branch protection access verified${NC}"
+fi
+
+echo "Testing pull request access..."
+if ! gh api "repos/$FULL_REPO/pulls" --method GET --silent &>/dev/null; then
+    echo -e "${RED}Warning: Token doesn't have pull request access${NC}"
+    echo "The GitHub App needs 'Pull requests' permission"
+else
+    echo -e "${GREEN}Pull request access verified${NC}"
 fi
 
 # Check if scripts exist
