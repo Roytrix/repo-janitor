@@ -1,41 +1,53 @@
 #!/bin/bash
 # filepath: github-auth.sh
-# Helper script to handle GitHub authentication with GitHub App
+# Helper script to handle GitHub authentication with GitHub App for GitHub Actions
 
 # Function to check if GitHub CLI is authenticated
 check_github_auth() {
-  # First check if we have app credentials
+  # Check if we're running in GitHub Actions
+  if [ -z "${GITHUB_ACTIONS}" ]; then
+    echo "Warning: This script is designed to run in GitHub Actions environment"
+  fi
+  
+  # Check for GitHub token from Actions
+  if [ -n "${GITHUB_TOKEN}" ]; then
+    echo "Using GITHUB_TOKEN from GitHub Actions"
+    # GitHub Actions automatically provides GITHUB_TOKEN, we just need to login with it
+    echo "${GITHUB_TOKEN}" | gh auth login --with-token
+    return 0
+  fi
+  
+  # Check if we have app credentials as fallback
   if [ -n "${RJ_APP_ID}" ] && [ -n "${RJ_PRIVATE_KEY}" ]; then
     # GitHub App authentication
     echo "Using GitHub App authentication with App ID: ${RJ_APP_ID}"
     
-    # Create temporary private key file if we have the key content
+    # Create temporary private key file from the provided key content
     local private_key_path
-    if [ -f "${RJ_PRIVATE_KEY}" ]; then
-      # Use the provided file path
-      private_key_path="${RJ_PRIVATE_KEY}"
-    else
-      # Create a temporary file for the private key content
-      private_key_path=$(mktemp)
-      echo "${RJ_PRIVATE_KEY}" > "${private_key_path}"
-      # Ensure proper permissions for the private key
-      chmod 600 "${private_key_path}"
-    fi
+    private_key_path=$(mktemp)
+    echo "${RJ_PRIVATE_KEY}" > "${private_key_path}"
+    # Ensure proper permissions for the private key
+    chmod 600 "${private_key_path}"
     
     # Generate JWT for GitHub App
-    local now=$(date +%s)
-    local expiry=$((now + 600)) # 10 minutes expiry
+    local now
+    now=$(date +%s)
+    local expiry
+    expiry=$((now + 600)) # 10 minutes expiry
     
     # Create JWT header and payload
     local header='{"alg":"RS256","typ":"JWT"}'
-    local payload="{\"iat\":${now},\"exp\":${expiry},\"iss\":${RJ_APP_ID}}"
+    local payload="{\"iat\":${now},\"exp\":${expiry},\"iss\":\"${RJ_APP_ID}\"}"
     
     # Base64 encode header and payload
-    local b64_header=$(echo -n "${header}" | base64 | tr -d '=' | tr '/+' '_-')
-    local b64_payload=$(echo -n "${payload}" | base64 | tr -d '=' | tr '/+' '_-')
+    local b64_header
+    b64_header=$(echo -n "${header}" | base64 | tr -d '=' | tr '/+' '_-')
+    local b64_payload
+    b64_payload=$(echo -n "${payload}" | base64 | tr -d '=' | tr '/+' '_-')
     
     # Create signature using private key
-    local signature=$(echo -n "${b64_header}.${b64_payload}" | openssl dgst -sha256 -sign "${private_key_path}" | base64 | tr -d '=' | tr '/+' '_-')
+    local signature
+    signature=$(echo -n "${b64_header}.${b64_payload}" | openssl dgst -sha256 -sign "${private_key_path}" | base64 | tr -d '=' | tr '/+' '_-')
     
     # Create JWT
     local jwt="${b64_header}.${b64_payload}.${signature}"
@@ -53,17 +65,23 @@ check_github_auth() {
       echo "Installation ID not provided, fetching from API..."
       
       # Get installation ID from GitHub API
-      local installations_response=$(curl -s -H "Authorization: Bearer ${jwt}" \
+      local installations_response
+      installations_response=$(curl -s -H "Authorization: Bearer ${jwt}" \
         -H "Accept: application/vnd.github.v3+json" \
         "https://api.github.com/app/installations")
       
-      # Extract first installation ID
-      installation_id=$(echo "${installations_response}" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+      # In GitHub Actions, jq should be available
+      installation_id=$(echo "${installations_response}" | jq -r '.[0].id' 2>/dev/null)
+      
+      # Fallback to grep if jq fails
+      if [ -z "${installation_id}" ] || [ "${installation_id}" = "null" ]; then
+        installation_id=$(echo "${installations_response}" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+      fi
       
       if [ -z "${installation_id}" ]; then
         echo "Failed to get installation ID for GitHub App."
-        echo "API Response:"
-        echo "${installations_response}"
+        echo "API Response: ${installations_response}"
+        echo "Set RJ_INSTALLATION_ID in your GitHub Actions secrets."
         return 1
       fi
       
@@ -71,13 +89,15 @@ check_github_auth() {
     fi
     
     # Use JWT to get installation token
-    local token_response=$(curl -s -X POST \
+    local token_response
+    token_response=$(curl -s -X POST \
       -H "Authorization: Bearer ${jwt}" \
       -H "Accept: application/vnd.github.v3+json" \
       "https://api.github.com/app/installations/${installation_id}/access_tokens")
     
     # Extract token from response
-    local token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    local token
+    token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
     
     if [ -z "${token}" ]; then
       echo "Failed to get installation token for GitHub App."
