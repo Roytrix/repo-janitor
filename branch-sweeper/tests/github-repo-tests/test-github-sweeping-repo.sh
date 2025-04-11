@@ -79,13 +79,13 @@ chmod +x "$DELETE_SCRIPT"
 create_github_summary() {
     local summary_file="github-summary.md"
     
-    echo "# Branch Sweeper GitHub Test Results" > $summary_file
-    echo "$(date)" >> $summary_file
-    echo "" >> $summary_file
-    echo "## Test Scenarios" >> $summary_file
+    echo "# Branch Sweeper GitHub Test Results" > "$summary_file"
+    echo "$(date)" >> "$summary_file"
+    echo "" >> "$summary_file"
+    echo "## Test Scenarios" >> "$summary_file"
     
     # Add more information as needed
-    return $summary_file
+    echo "$summary_file"  # Return the filename by printing it
 }
 
 # Function to run a test and report results
@@ -123,15 +123,21 @@ run_test() {
     fi
     
     gh repo clone "$gh_repo" "$REPO_NAME"
-    cd "$REPO_NAME"
+    cd "$REPO_NAME" || exit 1
     
     # Debug branch dates
     echo -e "\n${YELLOW}Checking branch dates before sweeping:${NC}"
-    for branch in $(git branch -r | grep -v "HEAD" | sed 's/origin\///'); do
-        last_commit_date=$(git log -1 --format="%ci" origin/$branch)
-        merged_status=$(git branch -r --merged origin/main | grep -w "origin/$branch" || echo "not merged")
+    while IFS= read -r branch; do
+        # Skip empty lines
+        [ -z "$branch" ] && continue
+        
+        # Remove origin/ prefix if present
+        branch="${branch#origin/}"
+        
+        last_commit_date=$(git log -1 --format="%ci" "origin/$branch")
+        merged_status=$(git branch -r --merged "origin/main" | grep -w "origin/$branch" || echo "not merged")
         echo "Branch $branch: Last commit: $last_commit_date, Status: $merged_status"
-    done
+    done < <(git branch -r | grep -v "HEAD" | sed 's/origin\///')
     
     # Debug sweeping script with verbose mode
     echo -e "\n${YELLOW}Running sweeping script with verbose mode:${NC}"
