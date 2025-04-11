@@ -58,7 +58,7 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Check if user is authenticated with GitHub CLI and validate token permissions
+# Check if authenticated with GitHub CLI and validate token permissions
 echo -e "${YELLOW}Verifying GitHub authentication and permissions...${NC}"
 
 # Run gh auth status and capture output for inspection
@@ -73,10 +73,19 @@ fi
 
 echo "$AUTH_OUTPUT"
 
-# Check for required token scopes
-if ! echo "$AUTH_OUTPUT" | grep -q "repo"; then
-    echo -e "${RED}Warning: Your GitHub token may not have 'repo' scope${NC}"
-    echo "This is required for repository operations"
+# Check if we're running with a GitHub App
+if [ -n "${RJ_APP_ID}" ]; then
+    echo -e "${GREEN}Running with GitHub App authentication (App ID: ${RJ_APP_ID})${NC}"
+    echo "Permissions for Repo Janitor App:"
+    echo "- Read access to metadata"
+    echo "- Read/write access to administration, code, and pull requests"
+    echo "(Token scopes not applicable for GitHub Apps)"
+else
+    # Only check token scopes if not using GitHub App
+    if ! echo "$AUTH_OUTPUT" | grep -q "repo"; then
+        echo -e "${RED}Warning: Your GitHub token may not have 'repo' scope${NC}"
+        echo "This is required for repository operations"
+    fi
 fi
 
 # Verify API access (GitHub App compatible)
@@ -356,13 +365,41 @@ fi
 echo "Available scopes and permissions:"
 gh auth status -t 2>&1 | grep -E "Token scopes:|✓|×"
 
-echo "Testing repository creation permissions:"
-if gh api --method POST /user/repos -f name=permission_test_repo -f private=true -f auto_init=true --silent; then
-  echo -e "${GREEN}✓ Repository creation permission verified${NC}"
-  gh repo delete permission_test_repo --yes || echo "Failed to delete test repo, but creation worked."
+echo "Testing repository permissions..."
+
+# Different API endpoints for user tokens vs GitHub Apps
+if [ -n "${RJ_APP_ID}" ]; then
+  echo "GitHub App authentication detected, skipping repository creation test"
+  echo "Instead, validating repository administrative access..."
+  
+  # For GitHub Apps, check that we have admin access to at least one repo
+  REPO_COUNT=$(gh api /installation/repositories --jq '.repositories | length' 2>/dev/null || echo "0")
+  
+  if [ "$REPO_COUNT" -gt 0 ]; then
+    echo -e "${GREEN}✓ App has access to $REPO_COUNT repositories${NC}"
+    # Check admin permission on first repo
+    REPO_FULL_NAME=$(gh api /installation/repositories --jq '.repositories[0].full_name' 2>/dev/null)
+    echo "Testing administrative access on: $REPO_FULL_NAME"
+    if gh api "repos/$REPO_FULL_NAME" --jq '.permissions.admin' 2>/dev/null | grep -q "true"; then
+      echo -e "${GREEN}✓ App has admin permissions on $REPO_FULL_NAME${NC}"
+    else
+      echo -e "${YELLOW}⚠ App doesn't have admin permissions on $REPO_FULL_NAME${NC}"
+      echo "Some operations might be restricted"
+    fi
+  else
+    echo -e "${RED}⚠ No accessible repositories found for this GitHub App${NC}"
+    echo "Check that the app is installed on the target repositories"
+  fi
 else
-  echo -e "${RED}⚠ Repository creation may be restricted - tests might fail${NC}"
-  echo "If you're using a GitHub App token, ensure it has 'Repository: Administration' permissions"
+  # For user tokens, try to create a test repo
+  echo "Testing repository creation permissions:"
+  if gh api --method POST /user/repos -f name=permission_test_repo -f private=true -f auto_init=true --silent; then
+    echo -e "${GREEN}✓ Repository creation permission verified${NC}"
+    gh repo delete permission_test_repo --yes || echo "Failed to delete test repo, but creation worked."
+  else
+    echo -e "${RED}⚠ Repository creation may be restricted - tests might fail${NC}"
+    echo "Check that your token has 'repo' scope"
+  fi
 fi
 
 # Run all test scenarios
