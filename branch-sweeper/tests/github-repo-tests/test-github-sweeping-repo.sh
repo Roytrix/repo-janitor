@@ -47,11 +47,49 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Check if user is authenticated with GitHub CLI
-if ! gh auth status &> /dev/null; then
+# Check if user is authenticated with GitHub CLI and validate token permissions
+echo -e "${YELLOW}Verifying GitHub authentication and permissions...${NC}"
+
+# Run gh auth status and capture output for inspection
+AUTH_OUTPUT=$(gh auth status 2>&1)
+AUTH_STATUS=$?
+
+if [[ $AUTH_STATUS -ne 0 ]]; then
     echo -e "${RED}You are not authenticated with GitHub CLI.${NC}"
     echo "Please run 'gh auth login' first."
     exit 1
+fi
+
+echo "$AUTH_OUTPUT"
+
+# Check for required token scopes
+if ! echo "$AUTH_OUTPUT" | grep -q "repo"; then
+    echo -e "${RED}Warning: Your GitHub token may not have 'repo' scope${NC}"
+    echo "This is required for repository operations"
+fi
+
+# Verify user API access
+echo -e "${YELLOW}Checking API access...${NC}"
+if ! USER_INFO=$(gh api user --jq '.login' 2>/dev/null); then
+    echo -e "${RED}Error: Cannot access GitHub API with current token${NC}"
+    echo "This might be due to insufficient permissions or a token issue"
+    echo "Full error: $(gh api user 2>&1 || echo 'API call failed')"
+    exit 1
+fi
+
+echo "Authenticated as: $USER_INFO"
+
+# Test repository permissions specifically
+echo -e "${YELLOW}Testing repository permissions...${NC}"
+TEST_REPO_NAME="permission-test-$(date +%s)"
+if ! gh api --method POST /user/repos -f name=$TEST_REPO_NAME -f private=true -f auto_init=true --silent; then
+    echo -e "${RED}Warning: Your token doesn't have repository creation permissions${NC}"
+    echo "The GitHub App token may need 'Repository: Administration' permissions"
+    echo "Tests that involve repository creation may fail"
+else
+    echo -e "${GREEN}Repository creation permission verified${NC}"
+    # Clean up test repository
+    gh repo delete "$USER_INFO/$TEST_REPO_NAME" --yes || echo "Note: Failed to delete test repo, but creation worked"
 fi
 
 # Check if scripts exist
