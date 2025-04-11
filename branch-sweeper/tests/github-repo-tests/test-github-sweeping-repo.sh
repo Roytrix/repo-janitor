@@ -298,7 +298,20 @@ cleanup() {
     
     # Check if the repository exists before attempting to delete it
     local gh_user
-    gh_user=$(gh api user | jq -r .login)
+    gh_user=$(get_operating_identity)
+    
+    # For GitHub Apps, get the repository owner from installations
+    if [[ "$gh_user" == app/* ]]; then
+        # Try to get a repository from the current installation
+        local app_repo_owner
+        app_repo_owner=$(gh api /installation/repositories --jq '.repositories[0].owner.login' 2>/dev/null)
+        if [ -n "$app_repo_owner" ]; then
+            gh_user="$app_repo_owner"
+        elif [ -n "$GITHUB_REPOSITORY_OWNER" ]; then
+            gh_user="$GITHUB_REPOSITORY_OWNER"
+        fi
+    fi
+    
     local gh_repo="${gh_user}/${REPO_NAME}"
     
     echo "Checking if repository ${gh_repo} exists before deletion..."
@@ -330,7 +343,15 @@ trap cleanup EXIT
 # Verify GitHub permissions before running tests
 echo -e "${YELLOW}Verifying GitHub permissions...${NC}"
 echo "Current GitHub identity:"
-gh api user --jq '.login, .type'
+CURRENT_IDENTITY=$(get_operating_identity)
+echo "$CURRENT_IDENTITY"
+
+# For GitHub Apps, check installation access instead of user identity
+if [[ "$CURRENT_IDENTITY" == app/* ]]; then
+    echo "Running as GitHub App, checking installation access..."
+    INSTALLATION_CHECK=$(gh api /installation/repositories --jq '.total_count // 0' 2>/dev/null)
+    echo "Installation has access to $INSTALLATION_CHECK repositories"
+fi
 
 echo "Available scopes and permissions:"
 gh auth status -t 2>&1 | grep -E "Token scopes:|✓|×"

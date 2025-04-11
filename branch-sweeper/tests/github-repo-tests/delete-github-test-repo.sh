@@ -37,16 +37,25 @@ fi
 
 # Show more details about the repository before trying to delete it
 echo "Deleting repository: $REPO_NAME..."
-echo "Current user/token identity:"
-gh api user --jq '.login'
+echo "Current identity:"
+CURRENT_IDENTITY=$(get_operating_identity)
+echo "$CURRENT_IDENTITY"
 
 echo "Checking repository details..."
 if gh repo view $REPO_NAME --json owner,name,visibility,url 2>/dev/null; then
     echo "Repository exists and is accessible."
 else
     echo "Could not fetch repository details. HTTP status: $?"
-    echo "Full repository path may be incorrect. Trying with current user's namespace..."
-    CURRENT_USER=$(gh api user --jq '.login')
+    echo "Full repository path may be incorrect. Trying with current identity's namespace..."
+    CURRENT_USER=$(get_operating_identity)
+    # For GitHub Apps, try to find the repository owner from installations
+    if [[ "$CURRENT_USER" == app/* && -n "$GITHUB_TOKEN" ]]; then
+        # Try to get a repository from the current installation
+        REPO_OWNER=$(gh api /installation/repositories --jq '.repositories[0].owner.login' 2>/dev/null)
+        if [ -n "$REPO_OWNER" ]; then
+            CURRENT_USER="$REPO_OWNER"
+        fi
+    fi
     FULL_REPO_PATH="$CURRENT_USER/$REPO_NAME"
     echo "Attempting with full path: $FULL_REPO_PATH"
     if gh repo view "$FULL_REPO_PATH" --json owner,name,visibility,url 2>/dev/null; then
