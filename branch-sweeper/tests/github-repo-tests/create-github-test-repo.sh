@@ -4,6 +4,11 @@
 set -e
 set -o pipefail
 
+# Source the GitHub authentication helper
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT}/branch-sweeper/scripts/github-auth.sh"
+
 # Enable debug mode for verbose output
 DEBUG=${DEBUG:-false}
 
@@ -13,6 +18,12 @@ debug() {
         echo "[DEBUG] $*"
     fi
 }
+
+# Authenticate with GitHub
+if ! check_github_auth; then
+    echo "Failed to authenticate with GitHub. Exiting."
+    exit 1
+fi
 
 # Get repository name from argument or use default
 if [ -n "$1" ]; then
@@ -25,7 +36,11 @@ fi
 # Step 1: Create a new GitHub repository
 echo "Creating GitHub repository: $REPO_NAME"
 debug "Getting current user identity"
-CURRENT_USER=$(gh api user --jq '.login')
+CURRENT_USER=$(get_github_user)
+if [ $? -ne 0 ]; then
+    echo "Failed to get GitHub user. Exiting."
+    exit 1
+fi
 debug "Current user: $CURRENT_USER"
 echo "Creating repository as: $CURRENT_USER/$REPO_NAME"
 

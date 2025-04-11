@@ -4,11 +4,22 @@
 set -e
 set -o pipefail
 
+# Source the GitHub authentication helper
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT}/branch-sweeper/scripts/github-auth.sh"
+
 # Colors for better output
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
+
+# Authenticate with GitHub
+if ! check_github_auth; then
+    echo -e "${RED}Failed to authenticate with GitHub. Exiting.${NC}"
+    exit 1
+fi
 
 # Default repo name
 DEFAULT_REPO_NAME="repo-janitor-testing"

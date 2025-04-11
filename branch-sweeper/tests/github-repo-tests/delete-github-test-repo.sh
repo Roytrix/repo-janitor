@@ -3,6 +3,11 @@
 
 set -e
 
+# Source the GitHub authentication helper
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+source "${PROJECT_ROOT}/branch-sweeper/scripts/github-auth.sh"
+
 # Check if GitHub CLI is installed
 if ! command -v gh &> /dev/null; then
     echo "Error: GitHub CLI (gh) is not installed."
@@ -10,10 +15,9 @@ if ! command -v gh &> /dev/null; then
     exit 1
 fi
 
-# Check if user is authenticated with GitHub CLI
-if ! gh auth status &> /dev/null; then
-    echo "You are not authenticated with GitHub CLI."
-    echo "Please run 'gh auth login' first."
+# Authenticate with GitHub
+if ! check_github_auth; then
+    echo "Failed to authenticate with GitHub. Exiting."
     exit 1
 fi
 
