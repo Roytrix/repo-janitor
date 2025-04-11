@@ -70,7 +70,14 @@ jobs:
             chmod +x ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh
             ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh repo-janitor-testing
         env:
+          # Set authentication token for GitHub CLI
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+          # Set environment variables for our custom GitHub App authentication
+          RJ_APP_ID: ${{ secrets.REPO_JANITOR_APP_ID }}
+          RJ_PRIVATE_KEY: ${{ secrets.REPO_JANITOR_APP_PRIVATE_KEY }}
+          RJ_INSTALLATION_ID: ${{ secrets.REPO_JANITOR_APP_INSTALLATION_ID }}
+          RJ_APP_NAME: "Repo Janitor App"
+          # Test parameters
           WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
           DRY_RUN: ${{ inputs.dry_run }}
           PROTECTED_BRANCHES: ${{ inputs.protected_branches }}
