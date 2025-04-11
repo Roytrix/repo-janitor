@@ -2,6 +2,17 @@
 # filepath: create-github-test-repo.sh
 
 set -e
+set -o pipefail
+
+# Enable debug mode for verbose output
+DEBUG=${DEBUG:-false}
+
+# Function to log debug information
+debug() {
+    if [ "$DEBUG" = "true" ]; then
+        echo "[DEBUG] $*"
+    fi
+}
 
 # Get repository name from argument or use default
 if [ -n "$1" ]; then
@@ -13,7 +24,29 @@ fi
 
 # Step 1: Create a new GitHub repository
 echo "Creating GitHub repository: $REPO_NAME"
-gh repo create $REPO_NAME --public --clone
+debug "Getting current user identity"
+CURRENT_USER=$(gh api user --jq '.login')
+debug "Current user: $CURRENT_USER"
+echo "Creating repository as: $CURRENT_USER/$REPO_NAME"
+
+# Use more verbose options and capture output
+if ! gh repo create "$REPO_NAME" --public --clone --description "Test repository for repo-janitor" 2>&1 | tee /tmp/gh-create-output.log; then
+    echo "Error creating repository. See details below:"
+    cat /tmp/gh-create-output.log
+    echo "Trying alternative approach with GraphQL..."
+    
+    # Try alternative approach using REST API directly
+    debug "Attempting to create repository via REST API"
+    gh api --method POST repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to create repository using alternative method. Check permissions."
+        exit 1
+    fi
+    
+    # Clone the repository after creating it with the API
+    gh repo clone "$CURRENT_USER/$REPO_NAME" || exit 1
+fi
 
 # Move into the repository directory
 cd $REPO_NAME

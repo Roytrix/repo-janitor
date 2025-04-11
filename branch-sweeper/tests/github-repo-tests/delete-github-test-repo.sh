@@ -31,11 +31,42 @@ if [ -z "$REPO_NAME" ]; then
     exit 1
 fi
 
-# Try to delete the repository
+# Show more details about the repository before trying to delete it
 echo "Deleting repository: $REPO_NAME..."
-if gh repo delete $REPO_NAME --yes; then
+echo "Current user/token identity:"
+gh api user --jq '.login'
+
+echo "Checking repository details..."
+if gh repo view $REPO_NAME --json owner,name,visibility,url 2>/dev/null; then
+    echo "Repository exists and is accessible."
+else
+    echo "Could not fetch repository details. HTTP status: $?"
+    echo "Full repository path may be incorrect. Trying with current user's namespace..."
+    CURRENT_USER=$(gh api user --jq '.login')
+    FULL_REPO_PATH="$CURRENT_USER/$REPO_NAME"
+    echo "Attempting with full path: $FULL_REPO_PATH"
+    if gh repo view "$FULL_REPO_PATH" --json owner,name,visibility,url 2>/dev/null; then
+        echo "Repository found using full path: $FULL_REPO_PATH"
+        REPO_NAME="$FULL_REPO_PATH"
+    else
+        echo "Repository not found with either path. Proceeding with delete attempt anyway."
+    fi
+fi
+
+# Try to delete the repository with debug info
+echo "Running deletion command with verbose output..."
+if GH_DEBUG=api gh repo delete $REPO_NAME --yes; then
     echo "Repository $REPO_NAME has been successfully deleted."
 else
-    echo "Failed to delete repository. Check if the repository exists and you have proper permissions."
+    DELETE_STATUS=$?
+    echo "Failed to delete repository. Exit code: $DELETE_STATUS"
+    echo "Checking if repository still exists..."
+    if gh repo view $REPO_NAME --json owner,name,visibility,url 2>/dev/null; then
+        echo "Repository still exists but delete operation failed."
+        echo "This could be a permissions issue - ensure you have admin rights to this repository."
+    else
+        echo "Repository does not seem to exist although deletion returned an error."
+        echo "It may have already been deleted or named differently."
+    fi
     exit 1
 fi

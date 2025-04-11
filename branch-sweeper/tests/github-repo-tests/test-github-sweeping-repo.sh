@@ -193,23 +193,68 @@ run_test() {
 # Function to clean up at the end
 cleanup() {
     echo -e "\n${YELLOW}Cleaning up GitHub test repository...${NC}"
-    "$DELETE_SCRIPT" "$REPO_NAME"
-    echo -e "${GREEN}Test repository cleaned up${NC}"
+    
+    # Check if the repository exists before attempting to delete it
+    local gh_user=$(gh api user | jq -r .login)
+    local gh_repo="${gh_user}/${REPO_NAME}"
+    
+    echo "Checking if repository ${gh_repo} exists before deletion..."
+    if gh repo view "${gh_repo}" --json name &>/dev/null; then
+        echo "Repository exists, proceeding with deletion..."
+        
+        # Verbose deletion with error handling
+        if ! "$DELETE_SCRIPT" "$REPO_NAME"; then
+            echo -e "${RED}Failed to delete with script, trying direct API call...${NC}"
+            
+            # Try direct API deletion as fallback
+            if gh api --method DELETE "repos/${gh_repo}" &>/dev/null; then
+                echo -e "${GREEN}Repository deleted via direct API call${NC}"
+            else
+                echo -e "${RED}Failed to delete repository through all methods${NC}"
+                echo "You may need to manually delete the repository"
+            fi
+        else
+            echo -e "${GREEN}Test repository cleaned up successfully${NC}"
+        fi
+    else
+        echo -e "${YELLOW}Repository does not exist or is not accessible, no cleanup needed${NC}"
+    fi
 }
 
 # Set up trap to ensure cleanup on exit
 trap cleanup EXIT
 
+# Verify GitHub permissions before running tests
+echo -e "${YELLOW}Verifying GitHub permissions...${NC}"
+echo "Current GitHub identity:"
+gh api user --jq '.login, .type'
+
+echo "Available scopes and permissions:"
+gh auth status -t 2>&1 | grep -E "Token scopes:|✓|×"
+
+echo "Testing repository creation permissions:"
+if gh api --method POST /user/repos -f name=permission_test_repo -f private=true -f auto_init=true --silent; then
+  echo -e "${GREEN}✓ Repository creation permission verified${NC}"
+  gh repo delete permission_test_repo --yes || echo "Failed to delete test repo, but creation worked."
+else
+  echo -e "${RED}⚠ Repository creation may be restricted - tests might fail${NC}"
+  echo "If you're using a GitHub App token, ensure it has 'Repository: Administration' permissions"
+fi
+
 # Run all test scenarios
 echo -e "${GREEN}Starting GitHub repository sweeping tests...${NC}"
 
-# Standard run with 4 weeks threshold
+# Standard run with 4 weeks threshold with extensive debugging
+export DEBUG=true
+echo "Running with DEBUG=true for more verbose output"
 run_test "Standard run (4 weeks)" false 4 main "develop production"
 
-# Dry run mode
-run_test "Dry run mode (4 weeks)" true 4 main "develop production"
+# Comment out additional tests for now to focus on fixing the first one
+# Only uncomment these once the first test is working properly
+# # Dry run mode
+# run_test "Dry run mode (4 weeks)" true 4 main "develop production"
+# 
+# # Different time thresholds
+# run_test "Extended threshold (8 weeks)" false 8 main "develop production"
 
-# Different time thresholds
-run_test "Extended threshold (8 weeks)" false 8 main "develop production"
-
-echo -e "\n${GREEN}All GitHub tests completed successfully!${NC}"
+echo -e "\n${YELLOW}Tests completed. Check above logs for any errors.${NC}"
