@@ -79,7 +79,31 @@ if [ -n "${RJ_APP_ID}" ]; then
     echo "Permissions for Repo Janitor App:"
     echo "- Read access to metadata"
     echo "- Read/write access to administration, code, and pull requests"
-    echo "(Token scopes not applicable for GitHub Apps)"
+    
+    # Explain GitHub App authentication
+    echo -e "${YELLOW}Note about GitHub App authentication:${NC}"
+    echo "The App is installed, but still requires authentication with a private key."
+    echo "The authentication happens through:"
+    echo "1. App ID (RJ_APP_ID): ${RJ_APP_ID}"
+    echo "2. Private key (stored in RJ_APP_PRIVATE_KEY or RJ_APP_PRIVATE_KEY_PATH)"
+    
+    # Check if the private key is available
+    if [ -z "${RJ_APP_PRIVATE_KEY}" ] && [ -z "${RJ_APP_PRIVATE_KEY_PATH}" ]; then
+        echo -e "${YELLOW}Warning: Neither RJ_APP_PRIVATE_KEY nor RJ_APP_PRIVATE_KEY_PATH is set.${NC}"
+        echo "The private key is needed to generate authentication tokens."
+        echo "If you're seeing authentication errors, this could be why."
+    else
+        echo "Private key is available for authentication."
+    fi
+    
+    # Check if a token has already been generated
+    if [ -z "${GITHUB_TOKEN}" ]; then
+        echo -e "${YELLOW}Note: GITHUB_TOKEN is not set.${NC}" 
+        echo "This is usually automatically generated from the App ID and private key."
+        echo "The github-auth.sh script should handle this process."
+    else
+        echo "Authentication token is available (already generated from private key)."
+    fi
 else
     # Only check token scopes if not using GitHub App
     if ! echo "$AUTH_OUTPUT" | grep -q "repo"; then
@@ -92,13 +116,24 @@ fi
 echo -e "${YELLOW}Checking API access...${NC}"
 
 # For GitHub Apps, check repository API access instead of user API
+# IMPORTANT: Save the original repo name for testing - don't overwrite it!
+ORIG_REPO_NAME="$REPO_NAME"
+TEST_REPO_NAME="repo-janitor-testing"  # Always use this for testing
+
 REPO_OWNER=${GITHUB_REPOSITORY_OWNER:-$(echo $GITHUB_REPOSITORY | cut -d '/' -f1)}
-REPO_NAME=${GITHUB_REPOSITORY#*/}
-FULL_REPO="${REPO_OWNER}/${REPO_NAME}"
+CURR_REPO=${GITHUB_REPOSITORY#*/}
+FULL_REPO="${REPO_OWNER}/${CURR_REPO}"
 
 if [[ -z "$FULL_REPO" || "$FULL_REPO" == "/" ]]; then
     # Try to get it from the remote
     FULL_REPO=$(git config --get remote.origin.url | sed 's/.*github.com[:/]\(.*\)\.git/\1/')
+fi
+
+# SAFETY CHECK: Make sure we're not trying to use the actual repo-janitor repo for tests
+if [[ "$ORIG_REPO_NAME" == "repo-janitor" ]]; then
+    echo -e "${RED}SAFETY WARNING: Detected attempt to use 'repo-janitor' as test repository!${NC}"
+    echo -e "${RED}Setting test repository to 'repo-janitor-testing' for safety${NC}"
+    REPO_NAME="$TEST_REPO_NAME"
 fi
 
 echo "Testing access to repository: $FULL_REPO"

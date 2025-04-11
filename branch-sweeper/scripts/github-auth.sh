@@ -18,14 +18,27 @@ check_github_auth() {
   fi
   
   # Check if we have app credentials as fallback
-  if [ -n "${RJ_APP_ID}" ] && [ -n "${RJ_PRIVATE_KEY}" ]; then
+  if [ -n "${RJ_APP_ID}" ] && { [ -n "${RJ_APP_PRIVATE_KEY}" ] || [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ]; }; then
     # GitHub App authentication
     echo "Using GitHub App authentication with App ID: ${RJ_APP_ID}"
     
-    # Create temporary private key file from the provided key content
+    # Determine the private key source
+    local private_key_content
     local private_key_path
-    private_key_path=$(mktemp)
-    echo "${RJ_PRIVATE_KEY}" > "${private_key_path}"
+    
+    if [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ] && [ -f "${RJ_APP_PRIVATE_KEY_PATH}" ]; then
+      # Use the provided path to private key
+      private_key_path="${RJ_APP_PRIVATE_KEY_PATH}"
+      echo "Using private key from path: ${private_key_path}"
+    elif [ -n "${RJ_APP_PRIVATE_KEY}" ]; then
+      # Create temporary private key file from the provided key content
+      private_key_path=$(mktemp)
+      echo "${RJ_APP_PRIVATE_KEY}" > "${private_key_path}"
+      echo "Created temporary private key file from RJ_APP_PRIVATE_KEY"
+    else
+      echo "Error: Neither RJ_APP_PRIVATE_KEY nor RJ_APP_PRIVATE_KEY_PATH contains a valid private key"
+      return 1
+    fi
     # Ensure proper permissions for the private key
     chmod 600 "${private_key_path}"
     
@@ -60,7 +73,7 @@ check_github_auth() {
     echo "JWT token generated successfully"
     
     # Get installation ID if not provided
-    local installation_id="${RJ_INSTALLATION_ID}"
+    local installation_id="${RJ_APP_INSTALLATION_ID}"
     if [ -z "${installation_id}" ]; then
       echo "Installation ID not provided, fetching from API..."
       
