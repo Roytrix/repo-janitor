@@ -165,9 +165,18 @@ run_test() {
     local default_branch="$4"
     local protected_branches="$5"
     
-    # Get the current user and repo for the GitHub API - do this first
+    # Get the current user and repo for the GitHub API - do this in a GitHub App compatible way
     local gh_user
-    gh_user=$(gh api user | jq -r .login)
+    # Try to get from environment variable first (for GitHub Actions)
+    if [[ -n "$GITHUB_REPOSITORY_OWNER" ]]; then
+        gh_user="$GITHUB_REPOSITORY_OWNER"
+    # For GitHub Apps, we can't use the /user endpoint, so extract from the current repo
+    elif [[ -n "$FULL_REPO" ]]; then
+        gh_user=$(echo "$FULL_REPO" | cut -d '/' -f1)
+    # Fallback to git config
+    else
+        gh_user=$(git config --get remote.origin.url | sed -E 's/.*github.com[:/]([^/]+).*/\1/')
+    fi
     local gh_repo="${gh_user}/${REPO_NAME}"
     
     echo -e "\n${YELLOW}====================================${NC}"
@@ -237,33 +246,39 @@ run_test() {
     
     # Export to GitHub summary if running in GitHub Actions
     if [ -n "$GITHUB_STEP_SUMMARY" ]; then
-        echo -e "\n## GitHub Test: ${test_name}" >> $GITHUB_STEP_SUMMARY
-        echo "Parameters:" >> $GITHUB_STEP_SUMMARY
-        echo "- Repository: $gh_repo" >> $GITHUB_STEP_SUMMARY
-        echo "- Dry Run: $dry_run" >> $GITHUB_STEP_SUMMARY
-        echo "- Weeks Threshold: $weeks" >> $GITHUB_STEP_SUMMARY
-        echo "- Default Branch: $default_branch" >> $GITHUB_STEP_SUMMARY
-        echo "- Protected Branches: $protected_branches" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        {
+            echo -e "\n## GitHub Test: ${test_name}"
+            echo "Parameters:"
+            echo "- Repository: ${gh_repo}"
+            echo "- Dry Run: ${dry_run}"
+            echo "- Weeks Threshold: ${weeks}"
+            echo "- Default Branch: ${default_branch}"
+            echo "- Protected Branches: ${protected_branches}"
+            echo ""
+            
+            echo "### Remaining branches:"
+            echo '```'
+        } >> "${GITHUB_STEP_SUMMARY}"
         
-        echo "### Remaining branches:" >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        cd "$REPO_NAME"
-        git branch -r >> $GITHUB_STEP_SUMMARY
+        cd "${REPO_NAME}"
+        git branch -r >> "${GITHUB_STEP_SUMMARY}"
         cd ..
-        echo '```' >> $GITHUB_STEP_SUMMARY
         
-        if [ -f "$REPO_NAME/summary.md" ]; then
-            echo "### Cleanup Summary:" >> $GITHUB_STEP_SUMMARY
-            cat "$REPO_NAME/summary.md" >> $GITHUB_STEP_SUMMARY
-        fi
-        
-        echo "---" >> $GITHUB_STEP_SUMMARY
+        {
+            echo '```'
+            
+            if [ -f "${REPO_NAME}/summary.md" ]; then
+                echo "### Cleanup Summary:"
+                cat "${REPO_NAME}/summary.md"
+            fi
+            
+            echo "---"
+        } >> "${GITHUB_STEP_SUMMARY}"
     fi
     
     # Clean up the repository
     echo -e "${YELLOW}Cleaning up local repository...${NC}"
-    rm -rf "$REPO_NAME"
+    rm -rf "${REPO_NAME}"
 }
 
 # Function to clean up at the end
@@ -271,7 +286,8 @@ cleanup() {
     echo -e "\n${YELLOW}Cleaning up GitHub test repository...${NC}"
     
     # Check if the repository exists before attempting to delete it
-    local gh_user=$(gh api user | jq -r .login)
+    local gh_user
+    gh_user=$(gh api user | jq -r .login)
     local gh_repo="${gh_user}/${REPO_NAME}"
     
     echo "Checking if repository ${gh_repo} exists before deletion..."
