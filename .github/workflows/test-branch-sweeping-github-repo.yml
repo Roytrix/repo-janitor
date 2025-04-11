@@ -42,27 +42,28 @@ jobs:
           echo "Auth Status:"
           gh auth status
           
-          # Test repository permission
+          # Test repository-specific permissions instead of user permissions
           echo "Testing repository permissions..."
           
-          # Check if the token has repository administration permissions
-          PERMISSIONS=$(gh api user --jq '.id' || echo "API_ACCESS_FAILED")
-          if [[ "$PERMISSIONS" == "API_ACCESS_FAILED" ]]; then
-            echo "::error::Token lacks basic read permission for user API"
+          # Check if the token has repository access permissions by accessing the current repo
+          REPO_ACCESS=$(gh api repos/${{ github.repository }} --jq '.name' || echo "API_ACCESS_FAILED")
+          if [[ "$REPO_ACCESS" == "API_ACCESS_FAILED" ]]; then
+            echo "::error::Token lacks basic read permission for repository API"
             exit 1
           fi
           
-          echo "Basic API access verified. Testing repository operations..."
+          echo "Basic repository API access verified."
+          echo "Repository name: $REPO_ACCESS"
           
-          # Try to create a temporary test repository to verify permissions
-          if ! gh api --method POST /user/repos -f name=test-permissions-repo -f private=true -f auto_init=true &> /dev/null; then
-            echo "::warning::Token doesn't have repository creation permissions"
-            echo "The following test may fail if attempting to create repositories"
-          else
-            echo "Repository creation permission verified"
-            # Clean up test repository
-            gh repo delete test-permissions-repo --yes || echo "Failed to delete test repo, but creation worked."
+          # Check if we can list branches - this is needed for branch sweeping
+          echo "Testing branch listing permissions..."
+          BRANCHES=$(gh api repos/${{ github.repository }}/branches --jq '.[].name' || echo "API_ACCESS_FAILED")
+          if [[ "$BRANCHES" == "API_ACCESS_FAILED" ]]; then
+            echo "::error::Token lacks permission to list branches"
+            exit 1
           fi
+          
+          echo "Branch listing permissions verified."
 
       - name: Perform authenticated operations
         run: |
