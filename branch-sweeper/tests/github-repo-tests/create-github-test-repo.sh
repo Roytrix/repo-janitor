@@ -35,17 +35,40 @@ fi
 
 # Step 1: Create a new GitHub repository
 echo "Creating GitHub repository: $REPO_NAME"
-debug "Getting current user identity"
-CURRENT_USER=$(get_github_user)
+debug "Getting identity for repository creation"
+CURRENT_USER=$(get_operating_identity)
 if [ $? -ne 0 ]; then
-    echo "Failed to get GitHub user. Exiting."
+    echo "Failed to get GitHub identity. Exiting."
     exit 1
 fi
-debug "Current user: $CURRENT_USER"
-echo "Creating repository as: $CURRENT_USER/$REPO_NAME"
+debug "Current identity: $CURRENT_USER"
 
-# Use more verbose options and capture output
-if ! gh repo create "$REPO_NAME" --public --clone --description "Test repository for repo-janitor" 2>&1 | tee /tmp/gh-create-output.log; then
+# Handle different behavior for GitHub App vs. user
+if [[ "$CURRENT_USER" == app/* ]]; then
+    # For GitHub Apps, we need to use the API to create a repository in the organization/user account
+    # where the app is installed
+    echo "Creating repository using GitHub App: $REPO_NAME"
+    
+    # Use current token with API directly
+    REPO_OWNER=$(gh api /installation/repositories --jq '.repositories[0].owner.login' 2>/dev/null)
+    if [ -z "$REPO_OWNER" ]; then
+        REPO_OWNER="${GITHUB_REPOSITORY_OWNER:-$CURRENT_USER}"
+    fi
+    
+    echo "Creating repository as: $REPO_OWNER/$REPO_NAME"
+    
+    # Use API directly to create repository
+    if ! gh api --method POST /orgs/$REPO_OWNER/repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log; then
+        # Fallback to create in user account
+        echo "Trying to create in user account instead..."
+        gh api --method POST /user/repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log
+    fi
+else
+    # For regular user authentication
+    echo "Creating repository as: $CURRENT_USER/$REPO_NAME"
+    
+    # Use more verbose options and capture output
+    if ! gh repo create "$REPO_NAME" --public --clone --description "Test repository for repo-janitor" 2>&1 | tee /tmp/gh-create-output.log; then
     echo "Error creating repository. See details below:"
     cat /tmp/gh-create-output.log
     echo "Trying alternative approach with GraphQL..."

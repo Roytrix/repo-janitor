@@ -132,34 +132,40 @@ check_github_auth() {
   return 0
 }
 
-# Function to get current GitHub user/app
-get_github_user() {
-  if ! check_github_auth; then
-    return 1
-  fi
-  
-  # For GitHub Apps, we're operating as the app
-  local user
+# Function to get operating identity (app or user)
+get_operating_identity() {
+  # When using a GitHub App, identify as the app
   if [ -n "${RJ_APP_ID}" ]; then
-    # We're authenticated as a GitHub App
-    user="app/repo-janitor"
-    echo "${user}"
+    # Explicitly using app identity for GitHub App authentication
+    echo "app/repo-janitor"
     return 0
-  else
-    # Try to get user identity
-    user=$(gh api user --jq '.login' 2>/dev/null)
-    if [ $? -ne 0 ] || [ -z "$user" ]; then
-      # If user API fails but we're authenticated, use a default name
-      if gh auth status &>/dev/null; then
-        echo "github-actions[bot]"
-        return 0
-      else
-        echo "Failed to get GitHub user information."
-        return 1
-      fi
-    fi
+  fi
+
+  # For GitHub Actions environment
+  if [ -n "${GITHUB_ACTIONS}" ]; then
+    echo "github-actions[bot]"
+    return 0
   fi
   
-  echo "$user"
-  return 0
+  # Only for personal access token user authentication
+  # Attempt to get actual username (not for GitHub Apps)
+  if [ -z "${RJ_APP_ID}" ] && gh auth status &>/dev/null; then
+    local user
+    user=$(gh api user --jq '.login' 2>/dev/null)
+    if [ $? -eq 0 ] && [ -n "$user" ]; then
+      echo "$user"
+      return 0
+    fi
+    # Fallback for authenticated user with no API access
+    echo "github-user"
+    return 0
+  fi
+  
+  echo "Unknown identity - authentication may have failed"
+  return 1
+}
+
+# Maintain backward compatibility
+get_github_user() {
+  get_operating_identity "$@"
 }
