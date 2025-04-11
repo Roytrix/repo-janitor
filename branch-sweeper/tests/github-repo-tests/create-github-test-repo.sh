@@ -3,8 +3,13 @@
 
 set -e
 
-# Repository name (change this as needed)
-REPO_NAME="branch-sweeper-test-repo"
+# Get repository name from argument or use default
+if [ -n "$1" ]; then
+    REPO_NAME=$1
+else
+    REPO_NAME="branch-sweeper-test-repo"
+    echo "Using default repository name: $REPO_NAME"
+fi
 
 # Step 1: Create a new GitHub repository
 echo "Creating GitHub repository: $REPO_NAME"
@@ -20,7 +25,7 @@ git commit -m "Initial commit"
 git push -u origin HEAD
 
 # Rename default branch to main (if not already)
-gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/$(git branch --show-current)/rename \
+gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/$(git branch --show-current)/rename" \
   -X POST -F new_name=main
 
 # Step 3: Create protected branches
@@ -36,7 +41,7 @@ create_protected_branch() {
     git push -u origin $branch_name
     
     # Set branch protection using GitHub API
-    gh api repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/$branch_name/protection \
+    gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/$branch_name/protection" \
       -X PUT \
       -F required_status_checks[strict]=false \
       -F required_status_checks[contexts]="[]" \

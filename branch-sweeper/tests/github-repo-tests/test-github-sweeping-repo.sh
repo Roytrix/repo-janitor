@@ -96,7 +96,7 @@ run_test() {
     local default_branch="$4"
     local protected_branches="$5"
     
-    # Get the current user and repo for the GitHub API
+    # Get the current user and repo for the GitHub API - do this first
     local gh_user=$(gh api user | jq -r .login)
     local gh_repo="${gh_user}/${REPO_NAME}"
     
@@ -111,7 +111,7 @@ run_test() {
     echo "  - Protected Branches: $protected_branches"
     echo -e "${YELLOW}------------------------------------${NC}"
     
-    # Setup the test repository
+    # Setup the test repository with the exact repo name
     echo -e "\n${YELLOW}Setting up GitHub test repository...${NC}"
     "$CREATE_SCRIPT" "$REPO_NAME"
     
