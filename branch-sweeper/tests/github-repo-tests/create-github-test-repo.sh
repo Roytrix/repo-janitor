@@ -62,7 +62,41 @@ debug "  DAYS_2_AGO: $DAYS_2_AGO"
 
 # Create a new repository
 echo "Creating new repository: $FULL_REPO_NAME"
-gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor"
+
+# Verify we have the proper token permissions before creating repo
+echo "Verifying GitHub token permissions..."
+CURRENT_AUTH=$(gh auth status 2>&1)
+echo "$CURRENT_AUTH"
+
+# Check if token has org admin permissions if needed
+if [[ "$REPO_OWNER" != "$GITHUB_REPOSITORY_OWNER" && "$REPO_OWNER" != "$(gh api user --jq .login 2>/dev/null)" ]]; then
+    debug "Testing if token has org admin permissions for $REPO_OWNER"
+    ORG_PERMISSIONS=$(gh api "orgs/$REPO_OWNER" --jq '.login' 2>/dev/null || echo "ORG_ACCESS_FAILED")
+    if [[ "$ORG_PERMISSIONS" == "ORG_ACCESS_FAILED" ]]; then
+        echo "Warning: Token lacks permission to access organization $REPO_OWNER"
+        echo "Will attempt with current user's namespace instead"
+        REPO_OWNER=$(gh api user --jq .login)
+        FULL_REPO_NAME="${REPO_OWNER}/${REPO_NAME}"
+        debug "Updated repository name: $FULL_REPO_NAME"
+    fi
+fi
+
+# Try creating the repository
+gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor" || {
+    echo "Failed to create repository. Checking if token has sufficient permissions..."
+    TOKEN_DETAILS=$(gh auth status 2>&1)
+    echo "Token details: $TOKEN_DETAILS"
+    
+    # If using GitHub App token, check installation permissions
+    if echo "$TOKEN_DETAILS" | grep -q "app/"; then
+        echo "Running as GitHub App, checking installation access..."
+        INSTALLATION_INFO=$(gh api app/installations --jq 'length')
+        echo "Installation has access to $INSTALLATION_INFO repositories"
+    fi
+    
+    echo "Aborting due to repository creation failure"
+    exit 1
+}
 
 # Clone the repo locally
 echo "Cloning repository..."
