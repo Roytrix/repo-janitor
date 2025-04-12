@@ -10,14 +10,9 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 # shellcheck source=../../../branch-sweeper/scripts/github-auth.sh disable=SC1091
 source "${PROJECT_ROOT}/branch-sweeper/scripts/github-auth.sh"
 
-# Enable debug mode for verbose output
-DEBUG=${DEBUG:-false}
-
-# Function to log debug information
-debug() {
-    if [[ "$DEBUG" == "true" ]]; then
-        echo "[DEBUG] $*"
-    fi
+# Always show all log messages for better visibility
+log() {
+    echo "[INFO] $*"
 }
 
 # Parse arguments
@@ -39,10 +34,20 @@ FULL_REPO_NAME="${REPO_OWNER}/${REPO_NAME}"
 debug "Creating repository: $FULL_REPO_NAME"
 
 # Delete the repository if it already exists
+echo "-------------------------------------------------------"
+echo "STEP: Cleaning up any existing repository with the same name"
+echo "-------------------------------------------------------"
+echo "Executing: ${SCRIPT_DIR}/delete-github-test-repo.sh $REPO_NAME $REPO_OWNER"
 "${SCRIPT_DIR}/delete-github-test-repo.sh" "$REPO_NAME" "$REPO_OWNER"
+echo "Repository cleanup completed"
+echo "-------------------------------------------------------"
 
 # Calculate dates for branches
+echo "-------------------------------------------------------"
+echo "STEP: Calculating dates for test branches"
+echo "-------------------------------------------------------"
 CURRENT_DATE=$(date +%s)
+echo "Current timestamp: $CURRENT_DATE ($(date -d "@$CURRENT_DATE" +"%Y-%m-%d"))"
 SECONDS_PER_DAY=86400
 SECONDS_PER_WEEK=$((SECONDS_PER_DAY * 7))
 
@@ -60,13 +65,27 @@ debug "  WEEKS_6_AGO: $WEEKS_6_AGO"
 debug "  WEEKS_5_AGO: $WEEKS_5_AGO"
 debug "  DAYS_2_AGO: $DAYS_2_AGO"
 
+debug "Date calculations:"
+debug "  WEEKS_10_AGO: $WEEKS_10_AGO"
+debug "  WEEKS_8_AGO: $WEEKS_8_AGO"
+debug "  WEEKS_6_AGO: $WEEKS_6_AGO"
+debug "  WEEKS_5_AGO: $WEEKS_5_AGO"
+debug "  DAYS_2_AGO: $DAYS_2_AGO"
+
 # Create a new repository
-echo "Creating new repository: $FULL_REPO_NAME"
+echo "-------------------------------------------------------"
+echo "STEP: Creating new repository: $FULL_REPO_NAME"
+echo "-------------------------------------------------------"
 
 # Verify we have the proper token permissions before creating repo
 echo "Verifying GitHub token permissions..."
 CURRENT_AUTH=$(gh auth status 2>&1)
 echo "$CURRENT_AUTH"
+
+# Display debug information about auth context
+debug "Authentication context:"
+debug "  User/app: $(get_operating_identity 2>/dev/null || echo "Unknown")"
+debug "  Token type: ${GITHUB_TOKEN:+GitHub Token}${GITHUB_APP_TOKEN:+GitHub App Token}${GH_TOKEN:+GH Token}"
 
 # Check if token has org admin permissions if needed
 if [[ "$REPO_OWNER" != "$GITHUB_REPOSITORY_OWNER" && "$REPO_OWNER" != "$(gh api user --jq .login 2>/dev/null)" ]]; then
@@ -82,8 +101,14 @@ if [[ "$REPO_OWNER" != "$GITHUB_REPOSITORY_OWNER" && "$REPO_OWNER" != "$(gh api 
 fi
 
 # Try creating the repository
-gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor" || {
-    echo "Failed to create repository. Checking if token has sufficient permissions..."
+echo "Attempting to create repository '$REPO_NAME'..."
+debug "Create command: gh repo create \"$REPO_NAME\" --public --description \"Test repository for repo-janitor\""
+
+if gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor"; then
+    echo "✅ Repository successfully created: $FULL_REPO_NAME"
+else
+    CREATION_STATUS=$?
+    echo "❌ Failed to create repository (exit code: $CREATION_STATUS). Checking if token has sufficient permissions..."
     TOKEN_DETAILS=$(gh auth status 2>&1)
     echo "Token details: $TOKEN_DETAILS"
     
@@ -96,17 +121,24 @@ gh repo create "$REPO_NAME" --public --description "Test repository for repo-jan
     
     echo "Aborting due to repository creation failure"
     exit 1
-}
+fi
 
 # Clone the repo locally
-echo "Cloning repository..."
+echo "-------------------------------------------------------"
+echo "STEP: Setting up local repository"
+echo "-------------------------------------------------------"
+echo "Cloning repository to temporary directory..."
 TEMP_DIR=$(mktemp -d)
+debug "Temp directory: $TEMP_DIR"
 cd "$TEMP_DIR"
+debug "Cloning from: https://github.com/${FULL_REPO_NAME}.git"
 git clone "https://github.com/${FULL_REPO_NAME}.git" .
 
 # Configure git
+echo "Configuring git identity..."
 git config user.name "GitHub Actions"
 git config user.email "actions@github.com"
+debug "Git configuration complete"
 
 # Create the initial commit
 echo "# Test Repository for Repo Janitor" > README.md
@@ -225,13 +257,18 @@ gh api --method PUT "/repos/${FULL_REPO_NAME}/branches/production/protection" \
   -f restrictions=null
 
 # Create branches with different scenarios
+echo "-------------------------------------------------------"
+echo "STEP: Creating test branches with various dates and merge states"
+echo "-------------------------------------------------------"
 git checkout main
 
-# Create branches that should be deleted (old merged branches)
-create_merged_branch "feature-old-merged" "$WEEKS_6_AGO"
+echo "CREATING BRANCHES THAT SHOULD BE DELETED (OLD MERGED BRANCHES)"
+echo "-------------------------------------------------------------"
+create_merged_branch "feature-old-merged" "$WEEKS_6_AGO" 
 create_merged_branch "bugfix-old-merged" "$WEEKS_5_AGO"
 
-# Create branches that should NOT be deleted (old unmerged branches)
+echo "CREATING BRANCHES THAT SHOULD NOT BE DELETED (UNMERGED OR RECENT)"
+echo "----------------------------------------------------------------"
 create_unmerged_branch "feature-very-old-unmerged" "$WEEKS_10_AGO"
 create_unmerged_branch "feature-old-unmerged" "$WEEKS_8_AGO"
 create_pr_merged_branch "feature-pr-merged" "$WEEKS_5_AGO"
