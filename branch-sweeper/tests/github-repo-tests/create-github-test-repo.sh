@@ -21,17 +21,17 @@ REPO_OWNER=${2:-"$GITHUB_REPOSITORY_OWNER"}
 
 # If REPO_OWNER is not set, try to get it from the current GitHub identity
 if [[ -z "$REPO_OWNER" ]]; then
-    debug "Trying to determine repository owner from current identity"
+    log "Trying to determine repository owner from current identity"
     REPO_OWNER=$(gh api user --jq .login 2>/dev/null || echo "")
     if [[ -z "$REPO_OWNER" ]]; then
         echo "Error: Could not determine repository owner. Please specify as the second argument."
         exit 1
     fi
-    debug "Determined repository owner: $REPO_OWNER"
+    log "Determined repository owner: $REPO_OWNER"
 fi
 
 FULL_REPO_NAME="${REPO_OWNER}/${REPO_NAME}"
-debug "Creating repository: $FULL_REPO_NAME"
+log "Creating repository: $FULL_REPO_NAME"
 
 # Delete the repository if it already exists
 echo "-------------------------------------------------------"
@@ -58,19 +58,12 @@ WEEKS_6_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_WEEK * 6))" +"%Y-%m-%d")
 WEEKS_5_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_WEEK * 5))" +"%Y-%m-%d")
 DAYS_2_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_DAY * 2))" +"%Y-%m-%d")
 
-debug "Date calculations:"
-debug "  WEEKS_10_AGO: $WEEKS_10_AGO"
-debug "  WEEKS_8_AGO: $WEEKS_8_AGO"
-debug "  WEEKS_6_AGO: $WEEKS_6_AGO"
-debug "  WEEKS_5_AGO: $WEEKS_5_AGO"
-debug "  DAYS_2_AGO: $DAYS_2_AGO"
-
-debug "Date calculations:"
-debug "  WEEKS_10_AGO: $WEEKS_10_AGO"
-debug "  WEEKS_8_AGO: $WEEKS_8_AGO"
-debug "  WEEKS_6_AGO: $WEEKS_6_AGO"
-debug "  WEEKS_5_AGO: $WEEKS_5_AGO"
-debug "  DAYS_2_AGO: $DAYS_2_AGO"
+log "Date calculations:"
+log "  WEEKS_10_AGO: $WEEKS_10_AGO"
+log "  WEEKS_8_AGO: $WEEKS_8_AGO"
+log "  WEEKS_6_AGO: $WEEKS_6_AGO"
+log "  WEEKS_5_AGO: $WEEKS_5_AGO"
+log "  DAYS_2_AGO: $DAYS_2_AGO"
 
 # Create a new repository
 echo "-------------------------------------------------------"
@@ -82,27 +75,27 @@ echo "Verifying GitHub token permissions..."
 CURRENT_AUTH=$(gh auth status 2>&1)
 echo "$CURRENT_AUTH"
 
-# Display debug information about auth context
-debug "Authentication context:"
-debug "  User/app: $(get_operating_identity 2>/dev/null || echo "Unknown")"
-debug "  Token type: ${GITHUB_TOKEN:+GitHub Token}${GITHUB_APP_TOKEN:+GitHub App Token}${GH_TOKEN:+GH Token}"
+# Display information about auth context
+log "Authentication context:"
+log "  User/app: $(get_operating_identity 2>/dev/null || echo "Unknown")"
+echo "  Token type: ${GITHUB_TOKEN:+GitHub Token}${GITHUB_APP_TOKEN:+GitHub App Token}${GH_TOKEN:+GH Token}"
 
 # Check if token has org admin permissions if needed
 if [[ "$REPO_OWNER" != "$GITHUB_REPOSITORY_OWNER" && "$REPO_OWNER" != "$(gh api user --jq .login 2>/dev/null)" ]]; then
-    debug "Testing if token has org admin permissions for $REPO_OWNER"
+    echo "Testing if token has org admin permissions for $REPO_OWNER"
     ORG_PERMISSIONS=$(gh api "orgs/$REPO_OWNER" --jq '.login' 2>/dev/null || echo "ORG_ACCESS_FAILED")
     if [[ "$ORG_PERMISSIONS" == "ORG_ACCESS_FAILED" ]]; then
         echo "Warning: Token lacks permission to access organization $REPO_OWNER"
         echo "Will attempt with current user's namespace instead"
         REPO_OWNER=$(gh api user --jq .login)
         FULL_REPO_NAME="${REPO_OWNER}/${REPO_NAME}"
-        debug "Updated repository name: $FULL_REPO_NAME"
+        echo "Updated repository name: $FULL_REPO_NAME"
     fi
 fi
 
 # Try creating the repository
 echo "Attempting to create repository '$REPO_NAME'..."
-debug "Create command: gh repo create \"$REPO_NAME\" --public --description \"Test repository for repo-janitor\""
+echo "Create command: gh repo create \"$REPO_NAME\" --public --description \"Test repository for repo-janitor\""
 
 if gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor"; then
     echo "✅ Repository successfully created: $FULL_REPO_NAME"
@@ -129,16 +122,16 @@ echo "STEP: Setting up local repository"
 echo "-------------------------------------------------------"
 echo "Cloning repository to temporary directory..."
 TEMP_DIR=$(mktemp -d)
-debug "Temp directory: $TEMP_DIR"
+echo "Temp directory: $TEMP_DIR"
 cd "$TEMP_DIR"
-debug "Cloning from: https://github.com/${FULL_REPO_NAME}.git"
+echo "Cloning from: https://github.com/${FULL_REPO_NAME}.git"
 git clone "https://github.com/${FULL_REPO_NAME}.git" .
 
 # Configure git
 echo "Configuring git identity..."
 git config user.name "GitHub Actions"
 git config user.email "actions@github.com"
-debug "Git configuration complete"
+echo "Git configuration complete"
 
 # Create the initial commit
 echo "# Test Repository for Repo Janitor" > README.md
