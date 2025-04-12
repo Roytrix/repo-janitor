@@ -26,7 +26,7 @@ if [ -n "$1" ]; then
     REPO_NAME=$1
 else
     echo -n "Enter repository name to delete: "
-    read REPO_NAME
+    read -r REPO_NAME
 fi
 
 # Validate repository name is not empty
@@ -42,7 +42,7 @@ CURRENT_IDENTITY=$(get_operating_identity)
 echo "$CURRENT_IDENTITY"
 
 echo "Checking repository details..."
-if gh repo view $REPO_NAME --json owner,name,visibility,url 2>/dev/null; then
+if gh repo view "$REPO_NAME" --json owner,name,visibility,url 2>/dev/null; then
     echo "Repository exists and is accessible."
 else
     echo "Could not fetch repository details. HTTP status: $?"
@@ -68,13 +68,13 @@ fi
 
 # Try to delete the repository with debug info
 echo "Running deletion command with verbose output..."
-if GH_DEBUG=api gh repo delete $REPO_NAME --yes; then
+if GH_DEBUG=api gh repo delete "$REPO_NAME" --yes; then
     echo "Repository $REPO_NAME has been successfully deleted."
 else
     DELETE_STATUS=$?
     echo "Failed to delete repository. Exit code: $DELETE_STATUS"
     echo "Checking if repository still exists..."
-    if gh repo view $REPO_NAME --json owner,name,visibility,url 2>/dev/null; then
+    if gh repo view "$REPO_NAME" --json owner,name,visibility,url 2>/dev/null; then
         echo "Repository still exists but delete operation failed."
         echo "This could be a permissions issue - ensure you have admin rights to this repository."
     else

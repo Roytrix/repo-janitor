@@ -23,7 +23,6 @@ check_github_auth() {
     echo "Using GitHub App authentication with App ID: ${RJ_APP_ID}"
     
     # Determine the private key source
-    local private_key_content
     local private_key_path
     
     if [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ] && [ -f "${RJ_APP_PRIVATE_KEY_PATH}" ]; then
@@ -164,8 +163,7 @@ get_operating_identity() {
   # Attempt to get actual username (not for GitHub Apps)
   if [ -z "${RJ_APP_ID}" ] && gh auth status &>/dev/null; then
     local user
-    user=$(gh api user --jq '.login' 2>/dev/null)
-    if [ $? -eq 0 ] && [ -n "$user" ]; then
+    if user=$(gh api user --jq '.login' 2>/dev/null) && [ -n "$user" ]; then
       echo "$user"
       return 0
     fi

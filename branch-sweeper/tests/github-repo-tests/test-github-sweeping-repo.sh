@@ -120,7 +120,7 @@ echo -e "${YELLOW}Checking API access...${NC}"
 ORIG_REPO_NAME="$REPO_NAME"
 TEST_REPO_NAME="repo-janitor-testing"  # Always use this for testing
 
-REPO_OWNER=${GITHUB_REPOSITORY_OWNER:-$(echo $GITHUB_REPOSITORY | cut -d '/' -f1)}
+REPO_OWNER=${GITHUB_REPOSITORY_OWNER:-$(echo "$GITHUB_REPOSITORY" | cut -d '/' -f1)}
 CURR_REPO=${GITHUB_REPOSITORY#*/}
 FULL_REPO="${REPO_OWNER}/${CURR_REPO}"
 
@@ -203,10 +203,12 @@ chmod +x "$DELETE_SCRIPT"
 create_github_summary() {
     local summary_file="github-summary.md"
     
-    echo "# Branch Sweeper GitHub Test Results" > "$summary_file"
-    echo "$(date)" >> "$summary_file"
-    echo "" >> "$summary_file"
-    echo "## Test Scenarios" >> "$summary_file"
+    {
+    echo "# Branch Sweeper GitHub Test Results"
+    date
+    echo ""
+    echo "## Test Scenarios"
+} > "$summary_file"
     
     # Add more information as needed
     echo "$summary_file"  # Return the filename by printing it

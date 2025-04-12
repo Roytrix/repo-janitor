@@ -37,11 +37,13 @@ git commit -m "Add production documentation"
 git checkout main
 
 # Calculate dates relative to today instead of hardcoded
+# CURRENT_DATE is kept for potential future timestamp calculations
 CURRENT_DATE=$(date +%s)
 WEEKS_5_AGO=$(date -d "5 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_6_AGO=$(date -d "6 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_10_AGO=$(date -d "10 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_8_AGO=$(date -d "8 weeks ago" +"%Y-%m-%dT%H:%M:%S")
+# DAYS_15_AGO is defined for potential additional test cases
 DAYS_15_AGO=$(date -d "15 days ago" +"%Y-%m-%dT%H:%M:%S")
 DAYS_2_AGO=$(date -d "2 days ago" +"%Y-%m-%dT%H:%M:%S")
 
@@ -50,12 +52,12 @@ create_merged_stale_branch() {
     local branch_name=$1
     local commit_date="$2"
     
-    git checkout -b $branch_name
-    echo "# $branch_name feature" > $branch_name.md
-    git add $branch_name.md
+    git checkout -b "$branch_name"
+    echo "# $branch_name feature" > "$branch_name.md"
+    git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
     git checkout main
-    git merge --no-ff $branch_name -m "Merge branch '$branch_name'"
+    git merge --no-ff "$branch_name" -m "Merge branch '$branch_name'"
 }
 
 # Create a non-merged branch that's older than a month
@@ -63,9 +65,9 @@ create_old_unmerged_branch() {
     local branch_name=$1
     local commit_date="$2"
     
-    git checkout -b $branch_name
-    echo "# $branch_name feature" > $branch_name.md
-    git add $branch_name.md
+    git checkout -b "$branch_name"
+    echo "# $branch_name feature" > "$branch_name.md"
+    git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
     git checkout main
 }
@@ -75,12 +77,12 @@ create_pr_merged_branch() {
     local branch_name=$1
     local commit_date="$2"
     
-    git checkout -b $branch_name
-    echo "# $branch_name feature" > $branch_name.md
-    git add $branch_name.md
+    git checkout -b "$branch_name"
+    echo "# $branch_name feature" > "$branch_name.md"
+    git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
     git checkout main
-    git merge --no-ff $branch_name -m "Merge pull request #123 from user/$branch_name"
+    git merge --no-ff "$branch_name" -m "Merge pull request #123 from user/$branch_name"
 }
 
 # Create a recent unmerged branch that should be kept
@@ -88,9 +90,9 @@ create_recent_branch() {
     local branch_name=$1
     local commit_date="$2"
     
-    git checkout -b $branch_name
-    echo "# $branch_name feature" > $branch_name.md
-    git add $branch_name.md
+    git checkout -b "$branch_name"
+    echo "# $branch_name feature" > "$branch_name.md"
+    git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
     git checkout main
 }

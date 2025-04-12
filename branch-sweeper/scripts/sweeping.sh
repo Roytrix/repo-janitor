@@ -16,7 +16,10 @@ DRY_RUN="${1}"
 WEEKS_THRESHOLD="${2}"
 DEFAULT_BRANCH="${3}"
 PROTECTED_BRANCHES="${4}"
-GITHUB_REPOSITORY="${5}"
+# Repository name used in external API calls
+export GITHUB_REPOSITORY="${5}"
+# Reference the variable to satisfy shellcheck
+: "${GITHUB_REPOSITORY:?Repository must be specified}"
 
 # Check if we're in test mode
 TEST_MODE="${GITHUB_TEST_MODE:-false}"
@@ -92,16 +95,18 @@ git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs/remotes/
 if [[ "$TEST_MODE" == "true" ]]; then
     # In test mode, create a summary file
     SUMMARY_FILE="summary.md"
-    echo "# Branch Cleanup Summary" > "$SUMMARY_FILE"
-    echo "Generated on: $(date)" >> "$SUMMARY_FILE"
-    echo "" >> "$SUMMARY_FILE"
-    echo "## Configuration" >> "$SUMMARY_FILE"
-    echo "- Dry run: $DRY_RUN" >> "$SUMMARY_FILE"
-    echo "- Weeks threshold: $WEEKS_THRESHOLD" >> "$SUMMARY_FILE"
-    echo "- Default branch: $DEFAULT_BRANCH" >> "$SUMMARY_FILE"
-    echo "- Protected branches: $PROTECTED_BRANCHES" >> "$SUMMARY_FILE"
-    echo "" >> "$SUMMARY_FILE"
-    echo "## Results" >> "$SUMMARY_FILE"
+    {
+      echo "# Branch Cleanup Summary"
+      echo "Generated on: $(date)"
+      echo ""
+      echo "## Configuration"
+      echo "- Dry run: $DRY_RUN"
+      echo "- Weeks threshold: $WEEKS_THRESHOLD" 
+      echo "- Default branch: $DEFAULT_BRANCH"
+      echo "- Protected branches: $PROTECTED_BRANCHES"
+      echo ""
+      echo "## Results"
+    } > "$SUMMARY_FILE"
     
     # Track deleted branches
     DELETED_BRANCHES=()
@@ -114,7 +119,7 @@ if [[ "$TEST_MODE" == "true" ]]; then
         fi
         
         # Skip protected branches
-        if [[ " $PROTECTED_BRANCHES " =~ " $branch " ]]; then
+        if [[ " $PROTECTED_BRANCHES " =~ \ ${branch}\  ]]; then
             echo "Branch $branch is protected, skipping"
             continue
         fi
@@ -169,7 +174,7 @@ if [[ "$TEST_MODE" == "true" ]]; then
     
     # Set output for GitHub Actions
     if [[ -n "$GITHUB_OUTPUT" ]]; then
-        echo "deleted_count=${#DELETED_BRANCHES[@]}" >> $GITHUB_OUTPUT
+        echo "deleted_count=${#DELETED_BRANCHES[@]}" >> "$GITHUB_OUTPUT"
     fi
     
     exit 0
@@ -384,6 +389,6 @@ done < <(git for-each-ref --format='%(refname:short) %(committerdate:unix)' refs
       echo "- $branch"
     done
   fi
-} >summary.md
+} > summary.md
 
-echo "deleted_count=${#DELETED_BRANCHES[@]}" >> $GITHUB_OUTPUT
+echo "deleted_count=${#DELETED_BRANCHES[@]}" >> "$GITHUB_OUTPUT"

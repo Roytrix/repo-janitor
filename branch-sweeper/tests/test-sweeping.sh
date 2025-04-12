@@ -42,13 +42,15 @@ chmod +x "$SWEEPING_SCRIPT"
 create_github_summary() {
     local summary_file="github-summary.md"
     
-    echo "# Branch Sweeper Test Results" > $summary_file
-    echo "$(date)" >> $summary_file
-    echo "" >> $summary_file
-    echo "## Test Scenarios" >> $summary_file
+    {
+        echo "# Branch Sweeper Test Results"
+        date
+        echo ""
+        echo "## Test Scenarios"
+    } > "$summary_file"
     
     # Add more information as needed
-    return $summary_file
+    echo "$summary_file"  # Use echo to output the filename
 }
 
 # Function to run a test and report results
@@ -87,8 +89,8 @@ run_test() {
     echo -e "\n${YELLOW}Checking branch dates before sweeping:${NC}"
     cd ./repo-test
     for branch in $(git branch | cut -c 3-); do
-        last_commit_date=$(git log -1 --format="%ci" $branch)
-        merged_status=$(git branch --merged main | grep -w $branch || echo "not merged")
+        last_commit_date=$(git log -1 --format="%ci" "$branch")
+        merged_status=$(git branch --merged main | grep -w "$branch" || echo "not merged")
         echo "Branch $branch: Last commit: $last_commit_date, Status: $merged_status"
     done
     cd ..
@@ -135,30 +137,39 @@ run_test() {
 
     # Export to GitHub summary if running in GitHub Actions
     if [ -n "$GITHUB_STEP_SUMMARY" ]; then
-        echo -e "\n## Test: ${test_name}" >> $GITHUB_STEP_SUMMARY
-        echo "Parameters:" >> $GITHUB_STEP_SUMMARY
-        echo "- Dry Run: $dry_run" >> $GITHUB_STEP_SUMMARY
-        echo "- Weeks Threshold: $weeks" >> $GITHUB_STEP_SUMMARY
-        echo "- Default Branch: $default_branch" >> $GITHUB_STEP_SUMMARY
-        echo "- Protected Branches: $protected_branches" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
+        {
+            echo -e "\n## Test: ${test_name}"
+            echo "Parameters:"
+            echo "- Dry Run: $dry_run"
+            echo "- Weeks Threshold: $weeks"
+            echo "- Default Branch: $default_branch"
+            echo "- Protected Branches: $protected_branches"
+            echo ""
+            
+            echo "### Remaining branches:"
+        } >> "$GITHUB_STEP_SUMMARY"
         
-        echo "### Remaining branches:" >> $GITHUB_STEP_SUMMARY
         cd ./repo-test
-        echo '```' >> $GITHUB_STEP_SUMMARY
-        git branch -a >> $GITHUB_STEP_SUMMARY
-        echo '```' >> $GITHUB_STEP_SUMMARY
+        {
+            echo '```'
+            git branch -a
+            echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
         cd ..
         
         if [ -f "./repo-test/summary.md" ]; then
-            echo "### Cleanup Summary:" >> $GITHUB_STEP_SUMMARY
-            cat ./repo-test/summary.md >> $GITHUB_STEP_SUMMARY
+            {
+                echo "### Cleanup Summary:"
+                cat ./repo-test/summary.md
+            } >> "$GITHUB_STEP_SUMMARY"
         elif [ -f "summary.md" ]; then
-            echo "### Cleanup Summary:" >> $GITHUB_STEP_SUMMARY
-            cat summary.md >> $GITHUB_STEP_SUMMARY
+            {
+                echo "### Cleanup Summary:"
+                cat summary.md
+            } >> "$GITHUB_STEP_SUMMARY"
         fi
         
-        echo "---" >> $GITHUB_STEP_SUMMARY
+        echo "---" >> "$GITHUB_STEP_SUMMARY"
     fi
 
     # Clean up test repository after each test

@@ -2,11 +2,16 @@
 # filepath: create-github-test-repo.sh
 
 set -e
-set -o pipefail
+s    if ! gh api --method POST /orgs/"$REPO_OWN    git checkout -b "$branch_name"
+    echo "$content" > "$file_name"
+    git add "$file_name"
+    git commit -m "Add $branch_name file"
+    git push -u origin "$branch_name"epos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log; thent -o pipefail
 
 # Source the GitHub authentication helper
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+# shellcheck source=../../../branch-sweeper/scripts/github-auth.sh disable=SC1091
 source "${PROJECT_ROOT}/branch-sweeper/scripts/github-auth.sh"
 
 # Enable debug mode for verbose output
@@ -36,8 +41,7 @@ fi
 # Step 1: Create a new GitHub repository
 echo "Creating GitHub repository: $REPO_NAME"
 debug "Getting identity for repository creation"
-CURRENT_USER=$(get_operating_identity)
-if [ $? -ne 0 ]; then
+if ! CURRENT_USER=$(get_operating_identity); then
     echo "Failed to get GitHub identity. Exiting."
     exit 1
 fi
@@ -58,7 +62,7 @@ if [[ "$CURRENT_USER" == app/* ]]; then
     echo "Creating repository as: $REPO_OWNER/$REPO_NAME"
     
     # Use API directly to create repository
-    if ! gh api --method POST /orgs/$REPO_OWNER/repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log; then
+    if ! gh api --method POST "/orgs/$REPO_OWNER/repos" -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log; then
         # Fallback to create in user account
         echo "Trying to create in user account instead..."
         gh api --method POST /user/repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log
@@ -75,19 +79,18 @@ else
     
     # Try alternative approach using REST API directly
     debug "Attempting to create repository via REST API"
-    gh api --method POST repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log
-    
-    if [ $? -ne 0 ]; then
+    if ! gh api --method POST repos -f name="$REPO_NAME" -f description="Test repository for repo-janitor" -f private=false 2>&1 | tee /tmp/gh-create-output.log; then
         echo "Failed to create repository using alternative method. Check permissions."
         exit 1
     fi
     
     # Clone the repository after creating it with the API
     gh repo clone "$CURRENT_USER/$REPO_NAME" || exit 1
+    fi
 fi
 
 # Move into the repository directory
-cd $REPO_NAME
+cd "$REPO_NAME"
 
 # Step 2: Set up main branch with content
 echo "# Test Repository" > README.md
@@ -105,11 +108,11 @@ create_protected_branch() {
     local file_name=$2
     local content=$3
     
-    git checkout -b $branch_name
-    echo "$content" > $file_name
-    git add $file_name
+    git checkout -b "$branch_name"
+    echo "$content" > "$file_name"
+    git add "$file_name"
     git commit -m "Add $branch_name documentation"
-    git push -u origin $branch_name
+    git push -u origin "$branch_name"
     
     # Set branch protection using GitHub API
     gh api "repos/$(gh repo view --json nameWithOwner -q .nameWithOwner)/branches/$branch_name/protection" \
@@ -132,7 +135,6 @@ WEEKS_5_AGO=$(date -d "5 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_6_AGO=$(date -d "6 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_8_AGO=$(date -d "8 weeks ago" +"%Y-%m-%dT%H:%M:%S")
 WEEKS_10_AGO=$(date -d "10 weeks ago" +"%Y-%m-%dT%H:%M:%S")
-DAYS_15_AGO=$(date -d "15 days ago" +"%Y-%m-%dT%H:%M:%S")
 DAYS_2_AGO=$(date -d "2 days ago" +"%Y-%m-%dT%H:%M:%S")
 
 # Step 5: Create merged branches (stale)
@@ -140,11 +142,11 @@ create_merged_stale_branch() {
     local branch_name=$1
     local commit_date=$2
     
-    git checkout -b $branch_name
+    git checkout -b "$branch_name"
     echo "# $branch_name feature" > "$branch_name.md"
     git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
-    git push -u origin $branch_name
+    git push -u origin "$branch_name"
     
     # Create and merge a PR
     PR_URL=$(gh pr create --title "Merge $branch_name" --body "Test PR for $branch_name" --base main)
@@ -159,11 +161,11 @@ create_unmerged_branch() {
     local branch_name=$1
     local commit_date=$2
     
-    git checkout -b $branch_name
+    git checkout -b "$branch_name"
     echo "# $branch_name feature" > "$branch_name.md"
     git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
-    git push -u origin $branch_name
+    git push -u origin "$branch_name"
     
     git checkout main
 }
@@ -173,15 +175,15 @@ create_pr_merged_branch() {
     local branch_name=$1
     local commit_date=$2
     
-    git checkout -b $branch_name
+    git checkout -b "$branch_name"
     echo "# $branch_name feature" > "$branch_name.md"
     git add "$branch_name.md"
     GIT_COMMITTER_DATE="$commit_date" git commit -m "Add $branch_name feature" --date="$commit_date"
-    git push -u origin $branch_name
+    git push -u origin "$branch_name"
     
     # Create and merge a PR
     PR_URL=$(gh pr create --title "Merge $branch_name" --body "Test PR for $branch_name" --base main)
-    gh pr merge $PR_URL --merge
+    gh pr merge "$PR_URL" --merge
     
     git checkout main
     git pull
@@ -239,7 +241,7 @@ if [ -n "$1" ]; then
     REPO_NAME=$1
 else
     echo -n "Enter repository name to delete: "
-    read REPO_NAME
+    read -r REPO_NAME
 fi
 
 # Validate repository name is not empty
@@ -252,7 +254,7 @@ fi
 echo "WARNING: You are about to delete the repository: $REPO_NAME"
 echo "This action CANNOT be undone."
 echo -n "Are you sure you want to continue? (y/N): "
-read CONFIRM
+read -r CONFIRM
 
 if [[ $CONFIRM != "y" && $CONFIRM != "Y" ]]; then
     echo "Deletion cancelled."
@@ -261,7 +263,7 @@ fi
 
 # Try to delete the repository
 echo "Deleting repository: $REPO_NAME..."
-if gh repo delete $REPO_NAME --yes; then
+if gh repo delete "$REPO_NAME" --yes; then
     echo "Repository $REPO_NAME has been successfully deleted."
 else
     echo "Failed to delete repository. Check if the repository exists and you have proper permissions."
