@@ -102,24 +102,58 @@ check_github_auth() {
       
       echo "Calling GitHub API: https://api.github.com/app/installations"
     
-      # First try with default SSL settings
-    installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
-      -H "Accept: application/vnd.github+json" \
-      -H "X-GitHub-Api-Version: 2022-11-28" \
-      "https://api.github.com/app/installations")
-    curl_exit_code=$?
+      # Use GH CLI API command for reliable communication with GitHub API
+    # This avoids SSL issues that direct curl can encounter
+    echo "Trying gh api command for installation retrieval..."
+    installations_response=$(gh api --method GET \
+      --header "Authorization: Bearer ${jwt}" \
+      --header "Accept: application/vnd.github+json" \
+      --header "X-GitHub-Api-Version: 2022-11-28" \
+      "app/installations" 2>/dev/null || echo '{"error":"gh api command failed"}')
     
-    # If curl fails with SSL issues (code 43, 60, etc.), try with -k option to bypass SSL verification
-    if [ ${curl_exit_code} -eq 43 ] || [ ${curl_exit_code} -eq 60 ]; then
-      echo "SSL verification failed (curl exit code ${curl_exit_code}). Retrying with SSL verification disabled..."
-      installations_response=$(curl -k -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
-        -H "Accept: application/vnd.github+json" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/app/installations")
-      curl_exit_code=$?
-      if [ ${curl_exit_code} -eq 0 ]; then
-        echo "Request succeeded with SSL verification disabled"
+    # Check if gh api command succeeded
+    if echo "${installations_response}" | grep -q '"error":'; then
+      # Fall back to curl but with better SSL handling
+      echo "GH CLI API call failed, falling back to curl with improved SSL handling..."
+      
+      # Check for CA certificates and install if needed
+      if [ -f "/etc/ssl/certs/ca-certificates.crt" ]; then
+        echo "Using system CA certificates"
+        installations_response=$(curl --cacert /etc/ssl/certs/ca-certificates.crt -s -w "\nHTTP_STATUS:%{http_code}" \
+          -H "Authorization: Bearer ${jwt}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/app/installations")
+      else
+        echo "Using curl's default CA certificate store"
+        installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" \
+          -H "Authorization: Bearer ${jwt}" \
+          -H "Accept: application/vnd.github+json" \
+          -H "X-GitHub-Api-Version: 2022-11-28" \
+          "https://api.github.com/app/installations")
       fi
+      curl_exit_code=$?
+      
+      # If still failing with SSL issues, try GitHub's public key pinning
+      if [ ${curl_exit_code} -eq 43 ] || [ ${curl_exit_code} -eq 60 ]; then
+        echo "Standard SSL validation still failing. Using GitHub's API directly through gh CLI..."
+        # Use gh with raw mode and bare minimum options
+        gh_response=$(gh api --method GET \
+          --header "Authorization: Bearer ${jwt}" \
+          "app/installations" --raw 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "${gh_response}" ]; then
+          echo "Successfully retrieved data via gh CLI raw mode"
+          installations_response="${gh_response}"$'\n'"HTTP_STATUS:200"
+          curl_exit_code=0
+        else
+          echo "All SSL-based approaches failed. This is likely a network or certificate issue in your environment."
+          return 1
+        fi
+      fi
+    else
+      # GH API command succeeded, format response to match curl's expected format
+      installations_response="${installations_response}"$'\n'"HTTP_STATUS:200"
+      curl_exit_code=0
     fi
     
     # Check if curl command still failed after retry
