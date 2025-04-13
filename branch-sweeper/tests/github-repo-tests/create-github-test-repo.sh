@@ -58,12 +58,12 @@ WEEKS_6_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_WEEK * 6))" +"%Y-%m-%d")
 WEEKS_5_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_WEEK * 5))" +"%Y-%m-%d")
 DAYS_2_AGO=$(date -d "@$((CURRENT_DATE - SECONDS_PER_DAY * 2))" +"%Y-%m-%d")
 
-log "Date calculations:"
-log "  WEEKS_10_AGO: $WEEKS_10_AGO"
-log "  WEEKS_8_AGO: $WEEKS_8_AGO"
-log "  WEEKS_6_AGO: $WEEKS_6_AGO"
-log "  WEEKS_5_AGO: $WEEKS_5_AGO"
-log "  DAYS_2_AGO: $DAYS_2_AGO"
+echo "Date calculations:"
+echo "  WEEKS_10_AGO: $WEEKS_10_AGO"
+echo "  WEEKS_8_AGO: $WEEKS_8_AGO"
+echo "  WEEKS_6_AGO: $WEEKS_6_AGO"
+echo "  WEEKS_5_AGO: $WEEKS_5_AGO"
+echo "  DAYS_2_AGO: $DAYS_2_AGO"
 
 # Create a new repository
 echo "-------------------------------------------------------"
@@ -76,8 +76,8 @@ CURRENT_AUTH=$(gh auth status 2>&1)
 echo "$CURRENT_AUTH"
 
 # Display information about auth context
-log "Authentication context:"
-log "  User/app: $(get_operating_identity 2>/dev/null || echo "Unknown")"
+echo "Authentication context:"
+echo "  User/app: $(get_operating_identity 2>/dev/null || echo "Unknown")"
 echo "  Token type: ${GITHUB_TOKEN:+GitHub Token}${GITHUB_APP_TOKEN:+GitHub App Token}${GH_TOKEN:+GH Token}"
 
 # Check if token has org admin permissions if needed
