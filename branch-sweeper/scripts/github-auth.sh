@@ -75,23 +75,14 @@ check_github_auth() {
     local installation_id
     local installations_json
     
-    # Use gh CLI to get installations (avoids SSL issues)
-    if installations_json=$(gh api app/installations --header "Authorization: Bearer ${jwt}" 2>/dev/null); then
-      # Check if we got valid JSON with installations
-      if [ -n "${installations_json}" ] && [ "$(echo "${installations_json}" | jq 'length' 2>/dev/null)" -gt 0 ]; then
-        installation_id=$(echo "${installations_json}" | jq -r '.[0].id' 2>/dev/null)
-        echo "Successfully retrieved installation data using gh CLI"
-        echo "Found $(echo "${installations_json}" | jq 'length') installation(s)"
-      else
-        echo "No installations found or invalid response from gh CLI"
-      fi
-    else
-      echo "Could not get installations using gh CLI, falling back to direct API call"
-    fi
+    # Use the hardcoded installation ID instead of trying to retrieve it dynamically
+    local installation_id="64354788"
+    echo "Using fixed installation ID: ${installation_id}"
     
-    # Fall back to direct API call if gh CLI method failed
-    if [ -z "${installation_id}" ]; then
-      echo "Fetching GitHub App installation ID directly from API..."
+    # Skip the dynamic installation ID retrieval process entirely
+    if false; then
+      # This block will never execute but keeps the structure intact
+      echo "This code is skipped - using hardcoded installation ID instead"
       
       # Skip installation ID retrieval and directly use the JWT token for authentication
       echo "Using JWT token for authentication (last 4 chars: ${jwt: -4})"
