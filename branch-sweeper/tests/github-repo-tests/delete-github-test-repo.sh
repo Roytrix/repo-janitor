@@ -66,7 +66,15 @@ else
     fi
 fi
 
+# Check if repository exists before trying to delete
+echo "Checking if repository $REPO_NAME exists before deletion..."
+if ! gh repo view "$REPO_NAME" --json owner,name,visibility,url &>/dev/null; then
+    echo "Repository does not exist or is not accessible, no cleanup needed"
+    exit 0
+fi
+
 # Try to delete the repository with debug info
+echo "Repository exists, proceeding with deletion..."
 echo "Running deletion command with verbose output..."
 if GH_DEBUG=api gh repo delete "$REPO_NAME" --yes; then
     echo "Repository $REPO_NAME has been successfully deleted."
@@ -77,9 +85,10 @@ else
     if gh repo view "$REPO_NAME" --json owner,name,visibility,url 2>/dev/null; then
         echo "Repository still exists but delete operation failed."
         echo "This could be a permissions issue - ensure you have admin rights to this repository."
+        exit 1
     else
-        echo "Repository does not seem to exist although deletion returned an error."
-        echo "It may have already been deleted or named differently."
+        echo "Repository no longer exists despite deletion command error."
+        echo "Consider this a successful cleanup."
+        exit 0
     fi
-    exit 1
 fi
