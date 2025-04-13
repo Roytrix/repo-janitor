@@ -102,7 +102,7 @@ check_github_auth() {
       
       echo "Calling GitHub API: https://api.github.com/app/installations"
     
-    # First try with default SSL settings
+      # First try with default SSL settings
     installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
       -H "Accept: application/vnd.github+json" \
       -H "X-GitHub-Api-Version: 2022-11-28" \
@@ -185,8 +185,10 @@ check_github_auth() {
       echo "First 200 characters of API response: ${installations_response:0:200}..."
       return 1
     fi
-      
-      echo "Found installation ID: ${installation_id}"
+    
+    echo "Found installation ID: ${installation_id}"
+    
+    fi  # This closes the outer if [ -z "${installation_id}" ] from line 90
     
     # Use JWT to get installation access token as per GitHub documentation
     echo "Generating installation access token for installation ID: ${installation_id}"
