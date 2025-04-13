@@ -9,15 +9,16 @@ check_github_auth() {
     echo "Warning: This script is designed to run in GitHub Actions environment"
   fi
   
-  # Check for GitHub token from Actions
-  if [ -n "${GITHUB_TOKEN}" ]; then
-    echo "Using GITHUB_TOKEN from GitHub Actions"
-    # GitHub Actions automatically provides GITHUB_TOKEN, we just need to login with it
-    echo "${GITHUB_TOKEN}" | gh auth login --with-token
-    return 0
+  # Always prioritize GitHub App authentication
+  if [ -n "${RJ_APP_ID}" ] && { [ -n "${RJ_APP_PRIVATE_KEY}" ] || [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ]; }; then
+    echo "Using GitHub App authentication (preferred method)"
+  elif [ -n "${GITHUB_TOKEN}" ]; then
+    echo "GITHUB_TOKEN detected but not using it - GitHub App authentication is preferred"
+    echo "Please set RJ_APP_ID and RJ_APP_PRIVATE_KEY/RJ_APP_PRIVATE_KEY_PATH to use GitHub App auth"
+    echo "Attempting to continue with GitHub App auth setup..."
   fi
   
-  # Check if we have app credentials as fallback
+  # Always check for GitHub App credentials first
   if [ -n "${RJ_APP_ID}" ] && { [ -n "${RJ_APP_PRIVATE_KEY}" ] || [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ]; }; then
     # GitHub App authentication
     echo "Using GitHub App authentication with App ID: ${RJ_APP_ID}"
