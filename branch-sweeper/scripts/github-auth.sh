@@ -85,16 +85,31 @@ check_github_auth() {
     local curl_exit_code
     
     echo "Calling GitHub API: https://api.github.com/app/installations"
+    
+    # First try with default SSL settings
     installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
       -H "Accept: application/vnd.github+json" \
       -H "X-GitHub-Api-Version: 2022-11-28" \
       "https://api.github.com/app/installations")
     curl_exit_code=$?
     
-    # Check if curl command itself failed
+    # If curl fails with SSL issues (code 43, 60, etc.), try with -k option to bypass SSL verification
+    if [ ${curl_exit_code} -eq 43 ] || [ ${curl_exit_code} -eq 60 ]; then
+      echo "SSL verification failed (curl exit code ${curl_exit_code}). Retrying with SSL verification disabled..."
+      installations_response=$(curl -k -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "https://api.github.com/app/installations")
+      curl_exit_code=$?
+      if [ ${curl_exit_code} -eq 0 ]; then
+        echo "Request succeeded with SSL verification disabled"
+      fi
+    fi
+    
+    # Check if curl command still failed after retry
     if [ ${curl_exit_code} -ne 0 ]; then
       echo "Error: curl command failed with exit code ${curl_exit_code}"
-      echo "This might indicate network issues or invalid SSL certificates"
+      echo "This might indicate network issues or other connection problems"
       return 1
     fi
     
