@@ -1,49 +1,6 @@
 #!/bin/bash
 # filepath: github-auth.sh
-# Helper script to handle GitHub authentication with GitHub App for GitHub A    # Use JWT to get installation access token as per GitHub documentation
-    echo "Generating installation access token for installation ID: ${installation_id}"
-    
-    # Instead of using curl, use the GitHub CLI to get the installation token
-    # This avoids SSL issues and uses GitHub CLI's built-in authentication
-    local token_response
-    
-    # First, try using the gh CLI which is more reliable in GitHub Actions
-    echo "Using GitHub CLI to generate installation token..."
-    if token_response=$(gh api --method POST "/app/installations/${installation_id}/access_tokens" \
-      --header "Authorization: Bearer ${jwt}" \
-      --raw 2>/dev/null); then
-      
-      # Parse the token from the JSON response using grep (more reliable than jq in some environments)
-      local token
-      token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-      
-      if [ -n "${token}" ]; then
-        echo "Successfully retrieved installation token via GitHub CLI"
-      else
-        echo "Failed to extract token from GitHub CLI response"
-        echo "Response did not contain a token field"
-        echo "API Response (first 100 chars):"
-        echo "${token_response:0:100}"
-        return 1
-      fi
-    else
-      # If GitHub CLI approach fails, try direct authentication instead
-      echo "GitHub CLI token generation failed, trying direct authentication..."
-      
-      # Skip the installation token and use the JWT directly
-      echo "Using JWT directly for authentication..."
-      local token="${jwt}"
-    fi
-    
-    # Check if we have a valid token
-    if [ -z "${token}" ]; then
-      echo "Failed to get installation token for GitHub App."
-      echo "All authentication methods failed."
-      return 1
-    }
-    
-    # Log success but don't show the actual token
-    echo "Authentication token obtained successfully." to check if GitHub CLI is authenticated
+# Helper script to handle GitHub authentication with GitHub App for GitHub Actions
 check_github_auth() {
   # Check if we're running in GitHub Actions
   if [ -z "${GITHUB_ACTIONS}" ]; then
