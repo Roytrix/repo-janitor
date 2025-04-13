@@ -75,29 +75,85 @@ check_github_auth() {
     # Always fetch installation ID dynamically from API
     echo "Fetching GitHub App installation ID from API..."
     local installation_id
-      
-      # Get installation ID from GitHub API using /app/installations endpoint
-      # This endpoint returns all installations of the GitHub App
-      local installations_response
-      installations_response=$(curl -s -H "Authorization: Bearer ${jwt}" \
-        -H "Accept: application/vnd.github+json" \
-        -H "X-GitHub-Api-Version: 2022-11-28" \
-        "https://api.github.com/app/installations")
-      
-      # In GitHub Actions, jq should be available
-      installation_id=$(echo "${installations_response}" | jq -r '.[0].id' 2>/dev/null)
-      
-      # Fallback to grep if jq fails
-      if [ -z "${installation_id}" ] || [ "${installation_id}" = "null" ]; then
-        installation_id=$(echo "${installations_response}" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
-      fi
-      
-      if [ -z "${installation_id}" ]; then
-        echo "Failed to get installation ID for GitHub App."
-        echo "API Response: ${installations_response}"
-        echo "Please ensure the GitHub App is installed on at least one account/organization."
-        return 1
-      fi
+    
+    # Debug output to show the JWT token is being used (masked for security)
+    echo "Using JWT token for authentication: ${jwt:0:10}...${jwt: -10}"
+    
+    # Get installation ID from GitHub API using /app/installations endpoint
+    # This endpoint returns all installations of the GitHub App
+    local installations_response
+    local curl_exit_code
+    
+    echo "Calling GitHub API: https://api.github.com/app/installations"
+    installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
+      -H "Accept: application/vnd.github+json" \
+      -H "X-GitHub-Api-Version: 2022-11-28" \
+      "https://api.github.com/app/installations")
+    curl_exit_code=$?
+    
+    # Check if curl command itself failed
+    if [ ${curl_exit_code} -ne 0 ]; then
+      echo "Error: curl command failed with exit code ${curl_exit_code}"
+      echo "This might indicate network issues or invalid SSL certificates"
+      return 1
+    fi
+    
+    # Extract HTTP status and response body
+    local http_status
+    http_status=$(echo "${installations_response}" | grep "HTTP_STATUS:" | cut -d':' -f2)
+    installations_response=$(echo "${installations_response}" | sed '/HTTP_STATUS:/d')
+    
+    echo "HTTP Status: ${http_status}"
+    
+    # Check HTTP status for common errors
+    if [ "${http_status}" = "401" ]; then
+      echo "Error: Authentication failed (HTTP 401). Your App ID or private key might be invalid."
+      echo "Check that RJ_APP_ID and RJ_APP_PRIVATE_KEY are correctly set."
+      echo "First few characters of API response: ${installations_response:0:200}..."
+      return 1
+    elif [ "${http_status}" != "200" ]; then
+      echo "Error: GitHub API returned HTTP ${http_status}"
+      echo "First few characters of API response: ${installations_response:0:200}..."
+      return 1
+    fi
+    
+    # Check if response is empty
+    if [ -z "${installations_response}" ]; then
+      echo "Error: Empty response from GitHub API"
+      return 1
+    fi
+    
+    # Check if response contains 'message' field (usually error message)
+    if echo "${installations_response}" | grep -q '"message"'; then
+      local error_message
+      error_message=$(echo "${installations_response}" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4)
+      echo "GitHub API error: ${error_message}"
+      return 1
+    fi
+    
+    # In GitHub Actions, jq should be available
+    installation_id=$(echo "${installations_response}" | jq -r '.[0].id' 2>/dev/null)
+    
+    # Show number of installations found
+    local installations_count
+    installations_count=$(echo "${installations_response}" | jq -r 'length' 2>/dev/null || echo "unknown")
+    echo "Found ${installations_count} installation(s) of your GitHub App"
+    
+    # Fallback to grep if jq fails
+    if [ -z "${installation_id}" ] || [ "${installation_id}" = "null" ]; then
+      echo "Falling back to grep for parsing response"
+      installation_id=$(echo "${installations_response}" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+    fi
+    
+    if [ -z "${installation_id}" ]; then
+      echo "Failed to get installation ID for GitHub App."
+      echo "This usually happens when:"
+      echo "1. The GitHub App is not installed on any accounts/organizations"
+      echo "2. The App ID or private key is incorrect"
+      echo "3. The API response format has changed"
+      echo "First 200 characters of API response: ${installations_response:0:200}..."
+      return 1
+    fi
       
       echo "Found installation ID: ${installation_id}"
     
