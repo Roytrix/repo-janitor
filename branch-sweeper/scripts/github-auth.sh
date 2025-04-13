@@ -72,19 +72,35 @@ check_github_auth() {
     
     echo "JWT token generated successfully"
     
-    # Always fetch installation ID dynamically from API
-    echo "Fetching GitHub App installation ID from API..."
+    # Try to use gh CLI to get installations (preferred method)
+    echo "Getting GitHub App installations using gh CLI..."
     local installation_id
+    local installations_json
     
-    # Debug output to show the JWT token is being used (masked for security)
-    echo "Using JWT token for authentication: ${jwt:0:10}...${jwt: -10}"
+    # Use gh CLI to get installations (avoids SSL issues)
+    if installations_json=$(gh api app/installations --header "Authorization: Bearer ${jwt}" 2>/dev/null); then
+      # Check if we got valid JSON with installations
+      if [ -n "${installations_json}" ] && [ "$(echo "${installations_json}" | jq 'length' 2>/dev/null)" -gt 0 ]; then
+        installation_id=$(echo "${installations_json}" | jq -r '.[0].id' 2>/dev/null)
+        echo "Successfully retrieved installation data using gh CLI"
+        echo "Found $(echo "${installations_json}" | jq 'length') installation(s)"
+      else
+        echo "No installations found or invalid response from gh CLI"
+      fi
+    else
+      echo "Could not get installations using gh CLI, falling back to direct API call"
+    fi
     
-    # Get installation ID from GitHub API using /app/installations endpoint
-    # This endpoint returns all installations of the GitHub App
-    local installations_response
-    local curl_exit_code
-    
-    echo "Calling GitHub API: https://api.github.com/app/installations"
+    # Fall back to direct API call if gh CLI method failed
+    if [ -z "${installation_id}" ]; then
+      echo "Fetching GitHub App installation ID directly from API..."
+      local installations_response
+      local curl_exit_code
+      
+      # Debug output to show the JWT token is being used (masked for security)
+      echo "Using JWT token for authentication: ${jwt:0:10}...${jwt: -10}"
+      
+      echo "Calling GitHub API: https://api.github.com/app/installations"
     
     # First try with default SSL settings
     installations_response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -H "Authorization: Bearer ${jwt}" \
