@@ -111,10 +111,19 @@ check_github_auth() {
     local token_response=""
     
     # Use gh CLI to get installation token - this avoids SSL and other HTTP issues
-    if ! token_response=$(gh api --method POST "/app/installations/${installation_id}/access_tokens" \
-      --header "Authorization: Bearer ${jwt}" \
-      --raw 2>&1); then
+    # gh api doesn't have a --raw flag, using correct syntax
+    if token_response=$(gh api --method POST "/app/installations/${installation_id}/access_tokens" \
+      --header "Authorization: Bearer ${jwt}" 2>&1); then
       
+      echo "Successfully received response from GitHub API"
+      # Extract token from the API response
+      token=$(echo "$token_response" | jq -r '.token' 2>/dev/null)
+      
+      if [ -z "$token" ] || [ "$token" = "null" ]; then
+        echo "Could not extract token from response using jq, trying grep fallback"
+        token=$(echo "$token_response" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+      fi
+    else
       echo "GitHub CLI failed to get installation token:"
       echo "$token_response"
       echo "Trying alternative method..."
