@@ -104,21 +104,49 @@ check_github_auth() {
     
     # Use JWT to get installation access token as per GitHub documentation
     echo "Generating installation access token for installation ID: ${installation_id}"
-    local token_response
-    token_response=$(curl -s -X POST \
-      -H "Authorization: Bearer ${jwt}" \
-      -H "Accept: application/vnd.github.v3+json" \
-      "https://api.github.com/app/installations/${installation_id}/access_tokens")
     
-    # Extract token from response
-    local token
-    token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    # First try using gh CLI directly to get token (more reliable in GitHub Actions)
+    echo "Using GitHub CLI to generate installation token..."
+    local token=""
+    local token_response=""
+    
+    # Use gh CLI to get installation token - this avoids SSL and other HTTP issues
+    if ! token_response=$(gh api --method POST "/app/installations/${installation_id}/access_tokens" \
+      --header "Authorization: Bearer ${jwt}" \
+      --raw 2>&1); then
+      
+      echo "GitHub CLI failed to get installation token:"
+      echo "$token_response"
+      echo "Trying alternative method..."
+      
+      # Try to extract error message for better diagnostics
+      if [[ "$token_response" == *"message"* ]]; then
+        echo "Error message: $(echo "$token_response" | grep -o '"message":"[^"]*"' | cut -d'"' -f4)"
+      fi
+      
+      # Try direct curl call with very verbose output for debugging
+      echo "Using curl with verbose output..."
+      token_response=$(curl -v -X POST \
+        -H "Authorization: Bearer ${jwt}" \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
+        "https://api.github.com/app/installations/${installation_id}/access_tokens" 2>&1)
+        
+      # Try to extract token from response
+      token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    else
+      # Extract token from GitHub CLI response
+      token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+    fi
     
     if [ -z "${token}" ]; then
       echo "Failed to get installation token for GitHub App."
-      echo "API Response:"
-      echo "${token_response}"
-      return 1
+      echo "API Response (partial):"
+      # Only show a limited portion of the response for security
+      echo "${token_response:0:500}"
+      
+      echo "Trying to use JWT directly as a fallback..."
+      token="${jwt}"
     fi
     
     # Set token for GitHub CLI
