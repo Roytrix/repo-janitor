@@ -66,21 +66,22 @@ check_github_auth() {
     local jwt="${b64_header}.${b64_payload}.${signature}"
     
     # Clean up temporary file if created
-    if [ "${private_key_path}" != "${RJ_PRIVATE_KEY}" ]; then
+    if [ -n "${private_key_path}" ] && [ "${private_key_path}" != "${RJ_APP_PRIVATE_KEY_PATH}" ]; then
       rm "${private_key_path}"
     fi
     
     echo "JWT token generated successfully"
     
-    # Get installation ID if not provided
-    local installation_id="${RJ_APP_INSTALLATION_ID}"
-    if [ -z "${installation_id}" ]; then
-      echo "Installation ID not provided, fetching from API..."
+    # Always fetch installation ID dynamically from API
+    echo "Fetching GitHub App installation ID from API..."
+    local installation_id
       
-      # Get installation ID from GitHub API
+      # Get installation ID from GitHub API using /app/installations endpoint
+      # This endpoint returns all installations of the GitHub App
       local installations_response
       installations_response=$(curl -s -H "Authorization: Bearer ${jwt}" \
-        -H "Accept: application/vnd.github.v3+json" \
+        -H "Accept: application/vnd.github+json" \
+        -H "X-GitHub-Api-Version: 2022-11-28" \
         "https://api.github.com/app/installations")
       
       # In GitHub Actions, jq should be available
@@ -94,14 +95,14 @@ check_github_auth() {
       if [ -z "${installation_id}" ]; then
         echo "Failed to get installation ID for GitHub App."
         echo "API Response: ${installations_response}"
-        echo "Set RJ_INSTALLATION_ID in your GitHub Actions secrets."
+        echo "Please ensure the GitHub App is installed on at least one account/organization."
         return 1
       fi
       
       echo "Found installation ID: ${installation_id}"
-    fi
     
-    # Use JWT to get installation token
+    # Use JWT to get installation access token as per GitHub documentation
+    echo "Generating installation access token for installation ID: ${installation_id}"
     local token_response
     token_response=$(curl -s -X POST \
       -H "Authorization: Bearer ${jwt}" \
