@@ -18,7 +18,7 @@ check_github_auth() {
     echo "Attempting to continue with GitHub App auth setup..."
   fi
   
-  # Always check for GitHub App credentials first
+  # Authentication logic - single conditional block to avoid nesting issues
   if [ -n "${RJ_APP_ID}" ] && { [ -n "${RJ_APP_PRIVATE_KEY}" ] || [ -n "${RJ_APP_PRIVATE_KEY_PATH}" ]; }; then
     # GitHub App authentication
     echo "Using GitHub App authentication with App ID: ${RJ_APP_ID}"
@@ -94,8 +94,6 @@ check_github_auth() {
     # Fall back to direct API call if gh CLI method failed
     if [ -z "${installation_id}" ]; then
       echo "Fetching GitHub App installation ID directly from API..."
-      local installations_response
-      local curl_exit_code
       
       # Skip installation ID retrieval and directly use the JWT token for authentication
       echo "Using JWT token for authentication (last 4 chars: ${jwt: -4})"
@@ -111,9 +109,9 @@ check_github_auth() {
       
       echo "Successfully authenticated directly with JWT token"
       
-      # No need to close the if statement from line 90 as we're removing that entire flow
       # Setting a dummy value so following code still works
       local installation_id="not_needed"
+    fi
     
     # Use JWT to get installation access token as per GitHub documentation
     echo "Generating installation access token for installation ID: ${installation_id}"
