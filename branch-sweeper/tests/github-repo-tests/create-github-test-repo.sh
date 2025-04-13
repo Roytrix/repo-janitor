@@ -95,25 +95,81 @@ fi
 
 # Try creating the repository
 echo "Attempting to create repository '$REPO_NAME'..."
-echo "Create command: gh repo create \"$REPO_NAME\" --public --description \"Test repository for repo-janitor\""
 
-if gh repo create "$REPO_NAME" --public --description "Test repository for repo-janitor"; then
+# Ensure we're using GitHub App authentication
+echo "Using GitHub App for repository creation..."
+
+# For GitHub Apps, we need to create the repository using the installation token
+echo "Creating repository using GitHub App installation token..."
+
+# Detect if we're already using GitHub App authentication
+if ! gh auth status 2>&1 | grep -q "app/"; then
+    echo "⚠️ Warning: Not authenticated as a GitHub App. This may fail."
+    echo "Please ensure RJ_APP_ID and RJ_APP_PRIVATE_KEY/RJ_APP_PRIVATE_KEY_PATH are set correctly."
+fi
+
+# Get the installation ID for the current organization/user
+echo "Getting installation ID for $REPO_OWNER..."
+INSTALLATION_ID=$(gh api "users/$REPO_OWNER/installation" --jq '.id' 2>/dev/null || 
+                 gh api "orgs/$REPO_OWNER/installation" --jq '.id' 2>/dev/null || 
+                 gh api "app/installations" --jq '.[0].id' 2>/dev/null)
+
+if [[ -z "$INSTALLATION_ID" || "$INSTALLATION_ID" == "null" ]]; then
+    echo "❌ Failed to get installation ID. Checking available installations..."
+    echo "Available installations:"
+    gh api "app/installations" --jq '.[].account.login'
+    
+    # Try to find any installation we can use
+    echo "Attempting to find any usable installation..."
+    INSTALLATION_ID=$(gh api "app/installations" --jq '.[0].id' 2>/dev/null)
+    
+    if [[ -z "$INSTALLATION_ID" || "$INSTALLATION_ID" == "null" ]]; then
+        echo "❌ No installations found for this GitHub App. Please install the App on your organization/account."
+        exit 1
+    else
+        # Get the account login for this installation and update REPO_OWNER
+        INSTALLATION_ACCOUNT=$(gh api "app/installations/$INSTALLATION_ID" --jq '.account.login' 2>/dev/null)
+        echo "Found installation for account: $INSTALLATION_ACCOUNT"
+        REPO_OWNER="$INSTALLATION_ACCOUNT"
+        FULL_REPO_NAME="${REPO_OWNER}/${REPO_NAME}"
+        echo "Updated repository name to: $FULL_REPO_NAME"
+    fi
+fi
+
+echo "Using installation ID: $INSTALLATION_ID"
+
+# Create repo using the installation token via REST API 
+echo "Creating repository using GitHub App installation token..."
+REPO_CREATION_RESULT=$(gh api --method POST "repos" -f name="$REPO_NAME" \
+                      -f description="Test repository for repo-janitor" \
+                      -f private=false \
+                      -f auto_init=true 2>&1)
+
+if [[ $? -eq 0 ]]; then
     echo "✅ Repository successfully created: $FULL_REPO_NAME"
 else
-    CREATION_STATUS=$?
-    echo "❌ Failed to create repository (exit code: $CREATION_STATUS). Checking if token has sufficient permissions..."
-    TOKEN_DETAILS=$(gh auth status 2>&1)
-    echo "Token details: $TOKEN_DETAILS"
+    echo "❌ Failed to create repository. Error: $REPO_CREATION_RESULT"
+    echo "Trying alternative endpoint..."
     
-    # If using GitHub App token, check installation permissions
-    if echo "$TOKEN_DETAILS" | grep -q "app/"; then
-        echo "Running as GitHub App, checking installation access..."
-        INSTALLATION_INFO=$(gh api app/installations --jq 'length')
-        echo "Installation has access to $INSTALLATION_INFO repositories"
+    # Try the organization-specific endpoint if that's what we're using
+    if gh api "orgs/$REPO_OWNER" --jq '.login' &>/dev/null; then
+        echo "Creating repository in organization: $REPO_OWNER"
+        REPO_CREATION_RESULT=$(gh api --method POST "orgs/$REPO_OWNER/repos" -f name="$REPO_NAME" \
+                              -f description="Test repository for repo-janitor" \
+                              -f private=false \
+                              -f auto_init=true 2>&1)
+        
+        if [[ $? -eq 0 ]]; then
+            echo "✅ Repository successfully created in organization: $FULL_REPO_NAME"
+        else
+            echo "❌ Failed to create repository in organization. Error: $REPO_CREATION_RESULT"
+            echo "Aborting due to repository creation failure"
+            exit 1
+        fi
+    else
+        echo "Aborting due to repository creation failure"
+        exit 1
     fi
-    
-    echo "Aborting due to repository creation failure"
-    exit 1
 fi
 
 # Clone the repo locally
