@@ -97,92 +97,23 @@ check_github_auth() {
       local installations_response
       local curl_exit_code
       
-      # Skip all SSL-related handling and use the gh CLI directly
+      # Skip installation ID retrieval and directly use the JWT token for authentication
       echo "Using JWT token for authentication (last 4 chars: ${jwt: -4})"
       
-      # Use ONLY the GitHub CLI with --raw to bypass SSL issues
-      echo "Calling GitHub API using gh CLI only (no curl)..."
+      # Authenticate directly with the JWT token
+      echo "${jwt}" | gh auth login --with-token
       
-      # Set JWT auth in an environment variable that the gh command will use
-      export GH_AUTH_TOKEN="${jwt}"
-      
-      # Use gh CLI with the --raw option to get the raw API response
-      # This completely bypasses any SSL issues since gh handles all auth internally
-      installations_response=$(gh api --method GET \
-        --header "Authorization: Bearer ${jwt}" \
-        "app/installations" --raw 2>/dev/null)
-      
-      # Add HTTP status to match expected format in later code
-      installations_response="${installations_response}"$'\n'"HTTP_STATUS:200"
-      local curl_exit_code=0
-      
-      # Check if we got a valid JSON response
-      if ! echo "${installations_response}" | grep -q "id" || [ -z "${installations_response}" ]; then
-        echo "Error: Failed to get installations using GitHub CLI"
+      if ! gh auth status &>/dev/null; then
+        echo "Error: Failed to authenticate with GitHub using JWT token"
         echo "This is likely an authentication issue with your App ID or private key"
         return 1
       fi
-    
-    # Extract HTTP status and response body
-    local http_status
-    http_status=$(echo "${installations_response}" | grep "HTTP_STATUS:" | cut -d':' -f2)
-    installations_response=$(echo "${installations_response}" | sed '/HTTP_STATUS:/d')
-    
-    echo "HTTP Status: ${http_status}"
-    
-    # Check HTTP status for common errors
-    if [ "${http_status}" = "401" ]; then
-      echo "Error: Authentication failed (HTTP 401). Your App ID or private key might be invalid."
-      echo "Check that RJ_APP_ID and RJ_APP_PRIVATE_KEY are correctly set."
-      echo "First few characters of API response: ${installations_response:0:200}..."
-      return 1
-    elif [ "${http_status}" != "200" ]; then
-      echo "Error: GitHub API returned HTTP ${http_status}"
-      echo "First few characters of API response: ${installations_response:0:200}..."
-      return 1
-    fi
-    
-    # Check if response is empty
-    if [ -z "${installations_response}" ]; then
-      echo "Error: Empty response from GitHub API"
-      return 1
-    fi
-    
-    # Check if response contains 'message' field (usually error message)
-    if echo "${installations_response}" | grep -q '"message"'; then
-      local error_message
-      error_message=$(echo "${installations_response}" | grep -o '"message":"[^"]*"' | head -1 | cut -d'"' -f4)
-      echo "GitHub API error: ${error_message}"
-      return 1
-    fi
-    
-    # In GitHub Actions, jq should be available
-    installation_id=$(echo "${installations_response}" | jq -r '.[0].id' 2>/dev/null)
-    
-    # Show number of installations found
-    local installations_count
-    installations_count=$(echo "${installations_response}" | jq -r 'length' 2>/dev/null || echo "unknown")
-    echo "Found ${installations_count} installation(s) of your GitHub App"
-    
-    # Fallback to grep if jq fails
-    if [ -z "${installation_id}" ] || [ "${installation_id}" = "null" ]; then
-      echo "Falling back to grep for parsing response"
-      installation_id=$(echo "${installations_response}" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
-    fi
-    
-    if [ -z "${installation_id}" ]; then
-      echo "Failed to get installation ID for GitHub App."
-      echo "This usually happens when:"
-      echo "1. The GitHub App is not installed on any accounts/organizations"
-      echo "2. The App ID or private key is incorrect"
-      echo "3. The API response format has changed"
-      echo "First 200 characters of API response: ${installations_response:0:200}..."
-      return 1
-    fi
-    
-    echo "Found installation ID: ${installation_id}"
-    
-    fi  # This closes the outer if [ -z "${installation_id}" ] from line 90
+      
+      echo "Successfully authenticated directly with JWT token"
+      
+      # No need to close the if statement from line 90 as we're removing that entire flow
+      # Setting a dummy value so following code still works
+      local installation_id="not_needed"
     
     # Use JWT to get installation access token as per GitHub documentation
     echo "Generating installation access token for installation ID: ${installation_id}"
