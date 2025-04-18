@@ -73,7 +73,6 @@ check_github_auth() {
     # Try to use gh CLI to get installations (preferred method)
     echo "Getting GitHub App installations using gh CLI..."
     local installation_id
-    local installations_json
     
     # Use the hardcoded installation ID instead of trying to retrieve it dynamically
     local installation_id="64354788"
@@ -142,9 +141,6 @@ check_github_auth() {
         "https://api.github.com/app/installations/${installation_id}/access_tokens" 2>&1)
         
       # Try to extract token from response
-      token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
-    else
-      # Extract token from GitHub CLI response
       token=$(echo "${token_response}" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
     fi
     
