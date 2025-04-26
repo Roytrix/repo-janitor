@@ -24,7 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for accurate testing
 
       - name: Generate GitHub App token
         id: generate-token
@@ -65,10 +67,38 @@ jobs:
           
           echo "Branch listing permissions verified."
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Python environment
+        run: |
+          python --version
+          python -c "import sys; print(f'Python path: {sys.path}')"
+          
+      - name: Update PYTHONPATH
+        run: |
+          echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+          echo "Added current directory to PYTHONPATH: $(pwd)"
+          
+      - name: Install GitHub CLI
+        run: |
+          # Install GitHub CLI if not already available
+          if ! command -v gh &>/dev/null; then
+            echo "Installing GitHub CLI..."
+            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update
+            sudo apt install gh
+          else
+            echo "GitHub CLI already installed"
+          fi
+
       - name: Perform authenticated operations
         run: |
-            chmod +x ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh
-            ./branch-sweeper/tests/github-repo-tests/test-github-sweeping-repo.sh repo-janitor-testing
+            chmod +x ./branch-sweeper/tests/github-repo-tests/*.py
+            python ./branch-sweeper/tests/github-repo-tests/test_github_sweeping_repo.py --repo-name repo-janitor-testing
         env:
           # Set authentication token for GitHub CLI
           GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -92,13 +122,25 @@ jobs:
         with:
           name: branch-sweeper-test-results
           path: |
-            ./branch-sweeper/tests/summary-*.md
+            ./summary.md
+            ./github-test-summary.md
+            ./github-summary.md
           if-no-files-found: warn
           retention-days: 7
       
       - name: Post additional information to summary
         if: always()
         run: |
+          if [ -f github-test-summary.md ]; then
+            echo "## GitHub Repository Test Results" >> $GITHUB_STEP_SUMMARY
+            cat github-test-summary.md >> $GITHUB_STEP_SUMMARY
+          elif [ -f summary.md ]; then
+            echo "## Branch Sweeper Results" >> $GITHUB_STEP_SUMMARY
+            cat summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## No test results found" >> $GITHUB_STEP_SUMMARY
+            echo "No summary.md or github-test-summary.md file was generated." >> $GITHUB_STEP_SUMMARY
+          fi
           echo "## Environment Information" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Runner: ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
           echo "- Git version: $(git --version)" >> $GITHUB_STEP_SUMMARY

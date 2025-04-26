@@ -1,0 +1,5 @@
+# Branch Sweeper Python Dependencies
+
+# No external dependencies beyond the Python standard library!
+# This tool is designed to work with only the built-in Python libraries.
+# The only external dependency is the GitHub CLI (gh), which should be installed separately.

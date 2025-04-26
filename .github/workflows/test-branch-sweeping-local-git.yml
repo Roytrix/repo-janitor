@@ -24,7 +24,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Get full history for accurate testing
+        
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Python environment
+        run: |
+          python --version
+          python -c "import sys; print(f'Python path: {sys.path}')"
+          
+      - name: Update PYTHONPATH
+        run: |
+          echo "PYTHONPATH=$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+          echo "Added current directory to PYTHONPATH: $(pwd)"
         
       - name: Configure Git
         run: |
@@ -33,9 +50,13 @@ jobs:
         
       - name: Setup and run test
         run: |
-          chmod +x ./branch-sweeper/tests/test-sweeping.sh
+          chmod +x ./branch-sweeper/tests/*.py
           cd ./branch-sweeper/tests
-          ./test-sweeping.sh
+          python test_sweeping.py --run-all
+        env:
+          WEEKS_THRESHOLD: ${{ inputs.weeks_threshold }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          PROTECTED_BRANCHES: ${{ inputs.protected_branches }}
       
       - name: Upload test summaries
         if: always()
@@ -43,15 +64,28 @@ jobs:
         with:
           name: branch-sweeper-test-results
           path: |
-            ./branch-sweeper/tests/summary-*.md
+            ./branch-sweeper/tests/summary.md
+            ./branch-sweeper/tests/github-summary.md
           if-no-files-found: warn
           retention-days: 7
       
       - name: Post additional information to summary
         if: always()
         run: |
+          if [ -f ./branch-sweeper/tests/summary.md ]; then
+            echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+            cat ./branch-sweeper/tests/summary.md >> $GITHUB_STEP_SUMMARY
+          elif [ -f ./branch-sweeper/tests/github-summary.md ]; then
+            echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+            cat ./branch-sweeper/tests/github-summary.md >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## No test results found" >> $GITHUB_STEP_SUMMARY
+            echo "No summary files were generated." >> $GITHUB_STEP_SUMMARY
+          fi
+          
           echo "## Environment Information" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Runner: ${{ runner.os }}" >> $GITHUB_STEP_SUMMARY
           echo "- Git version: $(git --version)" >> $GITHUB_STEP_SUMMARY
+          echo "- Python version: $(python --version)" >> $GITHUB_STEP_SUMMARY
           echo "- Repository: ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
           echo "- Workflow: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY

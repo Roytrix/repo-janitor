@@ -33,38 +33,102 @@ runs:
         fetch-depth: 0 # Fetch all history
         token: ${{ inputs.token }}
     
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Verify Python environment
+      shell: python
+      run: |
+        import sys
+        import platform
+        print(f"Python version: {platform.python_version()}")
+        print(f"Python executable: {sys.executable}")
+        print(f"Python path: {sys.path}")
+    
     - name: Set script permissions
       shell: bash
       run: |
-        chmod +x ${{ github.action_path }}/scripts/*.sh
+        chmod +x ${{ github.action_path }}/scripts/*.py
 
     - name: Set variables
-      shell: bash
+      shell: python
       id: variables
-      run: ${{ github.action_path }}/scripts/set-variables.sh "${{ inputs.dry_run }}" "${{ inputs.weeks_threshold }}" "${{ inputs.default_branch }}" "${{ github.event.repository.default_branch }}"
+      run: |
+        import sys
+        sys.path.append('${{ github.action_path }}/scripts')
+        from set_variables import set_variables
+        sys.exit(set_variables("${{ inputs.dry_run }}", "${{ inputs.weeks_threshold }}", "${{ inputs.default_branch }}", "${{ github.event.repository.default_branch }}"))
 
     - name: Fetch protected branches
       id: fetch-protected-branches
-      shell: bash
+      shell: python
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-      run: ${{ github.action_path }}/scripts/fetch-protected-branches.sh "${{ github.repository }}"
+      run: |
+        import sys
+        sys.path.append('${{ github.action_path }}/scripts')
+        from fetch_protected_branches import fetch_protected_branches
+        import github_auth
+        
+        # Ensure GitHub authentication is set up
+        github_auth.check_github_auth()
+        
+        sys.exit(0 if fetch_protected_branches("${{ github.repository }}") else 1)
 
     - name: Show protected branches
-      shell: bash
-      run: ${{ github.action_path }}/scripts/show-protected-branches.sh "${{ env.PROTECTED_BRANCHES }}"
+      shell: python
+      run: |
+        import sys
+        sys.path.append('${{ github.action_path }}/scripts')
+        from show_protected_branches import show_protected_branches
+        sys.exit(show_protected_branches("${{ env.PROTECTED_BRANCHES }}"))
 
     - name: Validate inputs
-      shell: bash
-      run: ${{ github.action_path }}/scripts/validate-inputs.sh "${{ inputs.weeks_threshold }}"
+      shell: python
+      run: |
+        import sys
+        sys.path.append('${{ github.action_path }}/scripts')
+        from validate_inputs import validate_weeks_threshold
+        sys.exit(validate_weeks_threshold("${{ inputs.weeks_threshold }}"))
 
-    - name: sweeping dusty branches
-      shell: bash
+    - name: Sweeping dusty branches
+      shell: python
       id: delete-branches
       env:
         GH_TOKEN: ${{ inputs.token }}
-        DEBUG: true  # Add this line for verbose output
-      run: ${{ github.action_path }}/scripts/sweeping.sh "${{ env.DRY_RUN }}" "${{ env.WEEKS_THRESHOLD }}" "${{ env.DEFAULT_BRANCH }}" "${{ env.PROTECTED_BRANCHES }}" "${{ github.repository }}"
+        GITHUB_TOKEN: ${{ inputs.token }}
+        DEBUG: 'true'  # Enable verbose output
+      run: |
+        import sys
+        sys.path.append('${{ github.action_path }}/scripts')
+        from branch_sweeper import BranchSweeper
+        import github_auth
+        
+        # Ensure GitHub authentication is set up
+        github_auth.check_github_auth()
+        
+        # Convert string args to appropriate types
+        dry_run = "${{ env.DRY_RUN }}".lower() == "true"
+        
+        try:
+            weeks_threshold = int("${{ env.WEEKS_THRESHOLD }}")
+        except ValueError:
+            print("::error::weeks_threshold must be a valid integer")
+            sys.exit(1)
+        
+        # Create and run the branch sweeper
+        sweeper = BranchSweeper(
+            dry_run=dry_run,
+            weeks_threshold=weeks_threshold,
+            default_branch="${{ env.DEFAULT_BRANCH }}",
+            protected_branches="${{ env.PROTECTED_BRANCHES }}",
+            repo="${{ github.repository }}",
+            verbose=True
+        )
+        
+        sys.exit(sweeper.run())
 
     - name: Upload summary
       if: always()
