@@ -1,4 +1,3 @@
-ALWAYS run shellcheck in the terminal after you add or change code
 scripts always and only run on github actions workflow
 all log or debug need to be echo in the console
 Always scan this website for references about github app https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-as-a-github-app-installation
