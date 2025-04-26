@@ -115,13 +115,13 @@ class BranchSweeperTester:
                 
             print(f"Branch {branch}: Last commit: {last_commit_date}, Status: {merged_status}")
 
-    def run_test(self, test_name, dry_run, weeks, default_branch, protected_branches, repo):
+    def run_test(self, name, dry_run, weeks, default_branch, protected_branches, repo):
         """Run a branch sweeper test."""
         # Make sure test repository is set up
         self.setup_test_repository()
         
         print(f"\n{TerminalColors.YELLOW}===================================={TerminalColors.NC}")
-        print(f"{TerminalColors.YELLOW}Running Test: {test_name}{TerminalColors.NC}")
+        print(f"{TerminalColors.YELLOW}Running Test: {name}{TerminalColors.NC}")
         print(f"{TerminalColors.YELLOW}===================================={TerminalColors.NC}")
         print("Parameters:")
         print(f"  - Dry Run: {dry_run}")
@@ -268,12 +268,12 @@ def main():
         return 0 if tester.run_all_tests() else 1
     elif args.test_name:
         return 0 if tester.run_test(
-            args.test_name,
-            args.dry_run,
-            args.weeks,
-            args.default_branch,
-            args.protected_branches,
-            args.repo
+            name=args.test_name,
+            dry_run=args.dry_run,
+            weeks=args.weeks,
+            default_branch=args.default_branch,
+            protected_branches=args.protected_branches,
+            repo=args.repo
         ) else 1
     else:
         # Default to running all tests if no specific test is requested
